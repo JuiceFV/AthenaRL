@@ -26,9 +26,9 @@ def _load_runner_and_config_class(runner: str) -> Tuple[Callable, Type]:
     module = importlib.import_module(module_name)
     runner_callable = getattr(module, runner_name)
 
-    from source.core.confg import make_config_class
+    from source.core.confg import create_config_class
 
-    @make_config_class(runner_callable)
+    @create_config_class(runner_callable)
     class ConfigClass:
         pass
 
