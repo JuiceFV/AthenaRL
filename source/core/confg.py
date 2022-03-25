@@ -44,7 +44,7 @@ def _get_param_annotation(p: Any) -> Type:
     return type(p.default)
 
 
-def make_config_class(
+def create_config_class(
     func,
     allowlist: Optional[List[str]] = None,
     blocklist: Optional[List[str]] = None,
