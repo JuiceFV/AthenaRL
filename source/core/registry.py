@@ -6,6 +6,7 @@ from source.core.dataclasses import dataclass
 
 
 class RegistryMeta(abc.ABCMeta, LoggerMixin):
+
     def __init__(cls, name, bases, attrs):
         if not hasattr(cls, "REGISTRY"):
             # Put REGISTRY on cls. This only happens once on the base class
@@ -30,8 +31,7 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
                     "SKIP_FROZEN_REGISTRY_CHECK=1 to replace this error with a warning if you "
                     f"don't need the {name} to be added to the registry (e.g. if you're running the "
                     "code in an interactive mode or are developing custom FBL workflows that don't "
-                    "rely on ReAgent union classes)"
-                )
+                    "rely on ReAgent union classes)")
         else:
             if not cls.__abstractmethods__ and name != cls.REGISTRY_NAME:
                 # Only register fully-defined classes
@@ -50,6 +50,7 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
         return super().__init__(name, bases, attrs)
 
     def register(cls):
+
         def wrapper(roster):
             cls.REGISTRY_FROZEN = True
 
@@ -61,7 +62,8 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
             roster.make_roster_instance = make_roster_instance
 
             roster.__annotations__ = {
-                name: Optional[t] for name, t in cls.REGISTRY.items()
+                name: Optional[t]
+                for name, t in cls.REGISTRY.items()
             }
             for name in cls.REGISTRY:
                 setattr(roster, name, None)
