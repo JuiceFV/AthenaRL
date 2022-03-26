@@ -1,6 +1,7 @@
 from dataclasses import fields
 
-class TaggedRoster:
+
+class DiscriminatedUnion:
     """
     Assuming that subclasses are pydantic's dataclass. All the fields must be Optional
     w/ None as default value. This doesn't support changing selected field/value.
