@@ -1,17 +1,17 @@
+import abc
 import os
 import unittest
-import abc
 
-from typing import Any
-from source.core.dataclasses import field, dataclass
 from source.core.confg import create_config_class, resolve_defaults
+from source.core.dataclasses import dataclass, field
+from source.core.discriminated_union import DiscriminatedUnion
 from source.core.registry import RegistryMeta
-from source.core.tagged_roster import TaggedRoster
+
 
 class AB:
     @resolve_defaults
     def __init__(
-        self, a: int = 1, b : int = field(default_factory=lambda: 2)
+        self, a: int = 1, b: int = field(default_factory=lambda: 2)
     ) -> None:
         self.a = a
         self.b = b
@@ -47,7 +47,7 @@ class Bar(FooRegistry):
 
 
 @FooRegistry.register()
-class FooRoster(TaggedRoster):
+class FooRoster(DiscriminatedUnion):
     pass
 
 
@@ -56,6 +56,7 @@ class Config:
     roster: FooRoster = field(
         default_factory=lambda: FooRoster(Foo=Foo())
     )
+
 
 class TestConfigParser(unittest.TestCase):
     def test_parse_foo_default(self) -> None:
