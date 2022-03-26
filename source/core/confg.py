@@ -10,11 +10,11 @@ from torch import nn
 BLOCKLIST_TYPES = [nn.Module]
 
 
-def _get_param_annotation(p: Any) -> Type:
+def _get_param_annotation(param: Any) -> Type:
     """Retrieve parameter type annotation.
 
     Args:
-        p (Any): A parameter of some type.
+        param (Any): A parameter of some type.
 
     Raises:
         ValueError: If not annotated and unable to infer type from default
@@ -25,23 +25,23 @@ def _get_param_annotation(p: Any) -> Type:
     Returns:
         Type: Type of a parameter
     """
-    if p.annotation == Parameter.empty and p.default == Parameter.empty:
+    if param.annotation == Parameter.empty and param.default == Parameter.empty:
         raise ValueError(
-            f"Param {p}: both annotation and default are empty, "
+            f"Param {param}: both annotation and default are empty, "
             "so cannot infer any useful annotation."
         )
-    if p.annotation != Parameter.empty:
-        return p.annotation
-    if p.default is None:
+    if param.annotation != Parameter.empty:
+        return param.annotation
+    if param.default is None:
         raise ValueError(
-            f"Param {p}: default is None and annotation is empty, "
+            f"Param {param}: default is None and annotation is empty, "
             "cannot infer useful annotation"
         )
-    if isinstance(p.default, tuple):
-        raise ValueError(f"Param {p}: default is tuple, cannot infer type")
-    if isinstance(p.default, dict):
-        raise ValueError(f"Param{p}: default is tuple, cannot infer type")
-    return type(p.default)
+    if isinstance(param.default, tuple):
+        raise ValueError(f"Param {param}: default is tuple, cannot infer type")
+    if isinstance(param.default, dict):
+        raise ValueError(f"Param{param}: default is tuple, cannot infer type")
+    return type(param.default)
 
 
 def create_config_class(
@@ -142,7 +142,7 @@ def resolve_defaults(func):
                 f"{args}"
             )
         # go through unprovided default kwargs
-        for p in func_params[len(args) :]:
+        for p in func_params[len(args):]:
             # only resolve defaults for Fields
             if isinstance(p.default, Field):
                 if p.name not in kwargs:
