@@ -34,6 +34,7 @@ def _load_runner_and_config_class(runner: str) -> Tuple[Callable, Type]:
 
     return runner_callable, ConfigClass
 
+
 @reranking.command(short_help="Run reranking service with given config file")
 @click.argument("runner")
 @click.argument("config", type=click.File("r"))
@@ -41,6 +42,13 @@ def _load_runner_and_config_class(runner: str) -> Tuple[Callable, Type]:
               help="Additional options complement and override the config")
 def run(runner: str, config, extra_options):
     runner_callable, ConfigClass = _load_runner_and_config_class(runner)
+
+
+@reranking.command(short_help="Print JSON-schema of the runner")
+@click.argument("runner")
+def schema(runner: str):
+    _, ConfigClass = _load_runner_and_config_class(runner)
+    print(ConfigClass.__pydantic_model__.schema_json())
 
 
 if __name__ == '__main__':
