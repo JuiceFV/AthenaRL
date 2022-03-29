@@ -1,8 +1,13 @@
 import importlib
+import json
+import logging
+import os
+import sys
+from dataclasses import fields
 from typing import Callable, Tuple, Type
-from dataclasses import dataclass
 
 import click
+from ruamel.yaml import YAML
 
 from source.core.debug import DebugOnException
 
@@ -10,6 +15,13 @@ from source.core.debug import DebugOnException
 @click.group()
 def reranking() -> None:
     DebugOnException.start()
+    os.environ["USE_VANILLA_DATACLASS"] = "0"
+    FORMAT = (
+        "%(levelname).1s%(asctime)s.%(msecs)03d %(filename)s:%(lineno)d] %(message)s"
+    )
+    logging.basicConfig(
+        stream=sys.stderr, level=logging.INFO, format=FORMAT, datefmt="%m%d %H%M%S"
+    )
 
 
 def _load_runner_and_config_class(runner: str) -> Tuple[Callable, Type]:
@@ -37,11 +49,23 @@ def _load_runner_and_config_class(runner: str) -> Tuple[Callable, Type]:
 
 @reranking.command(short_help="Run reranking service with given config file")
 @click.argument("runner")
-@click.argument("config", type=click.File("r"))
+@click.argument("config_file", type=click.File("r"))
 @click.option("--extra-options", default=None,
               help="Additional options complement and override the config")
-def run(runner: str, config, extra_options):
+def run(runner: str, config_file, extra_options):
     runner_callable, ConfigClass = _load_runner_and_config_class(runner)
+    yaml = YAML(typ="safe")
+    config_dict = yaml.load(config_file.read())
+    assert config_dict is not None, "failed to read yaml file"
+    if extra_options is not None:
+        config_dict.update(json.loads(extra_options))
+    config_dict = {
+        field.name: config_dict[field.name]
+        for field in fields(ConfigClass)
+        if field.name in config_dict
+    }
+    config = ConfigClass(**config_dict)
+    runner_callable(**config.asdict())
 
 
 @reranking.command(short_help="Print JSON-schema of the runner")
