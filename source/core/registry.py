@@ -56,7 +56,10 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
 
             def make_roster_instance(inst, instance_class=None):
                 inst_class = instance_class or type(inst)
-                key = getattr(inst_class, "__registry_name__", inst_class.__name__)
+                key = getattr(
+                    inst_class, "__registry_name__",
+                    inst_class.__name__
+                )
                 return roster(**{key: inst})
 
             roster.make_roster_instance = make_roster_instance

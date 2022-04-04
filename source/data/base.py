@@ -8,8 +8,19 @@ from source.core.dtypes import (
 
 
 class DataModule(pl.LightningDataModule):
-    def __init__(self, train_transforms=None, val_transforms=None, test_transforms=None, dims=None):
-        super().__init__(train_transforms, val_transforms, test_transforms, dims)
+    def __init__(
+        self,
+        train_transforms=None,
+        val_transforms=None,
+        test_transforms=None,
+        dims=None
+    ):
+        super().__init__(
+            train_transforms,
+            val_transforms,
+            test_transforms,
+            dims
+        )
 
     @abc.abstractclassmethod
     def get_normalization_dict(

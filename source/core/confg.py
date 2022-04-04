@@ -3,6 +3,8 @@ from dataclasses import MISSING, Field, fields
 from inspect import Parameter, isclass, signature
 from typing import Any, List, Optional, Type, Union
 
+from pydantic import ClassError
+
 from source.core.dataclasses import dataclass
 from torch import nn
 
@@ -61,21 +63,22 @@ def create_config_class(
 
     parameters = signature(func).parameters
 
-    assert (
-        allowlist is None or blocklist is None
-    ), "allowlist & blocklist are mutually exclusive"
+    if allowlist and blocklist:
+        raise ValueError("Allowlist & blocklist are mutually exclusive")
 
     blocklist_set = set(blocklist or [])
 
     def _is_type_in_blocklist(_type: Type):
         if getattr(_type, "__origin__", None) is Union:
-            assert len(_type.__args__) == 2 and _type.__args__[1] == type(
-                None
-            ), "Only Unions of [X, None] (a.k.a. Optional[X]) are supported"
+            if len(_type.__args__) != 2 or _type.__args__[1] != type(None):
+                raise TypeError(
+                    "Only Unions of [X, None] (a.k.a. Optional[X]) are supported"
+                )
             _type = _type.__args__[0]
         if hasattr(_type, "__origin__"):
             _type = _type.__origin__
-        assert isclass(_type), f"{_type} is not a class."
+        if not isclass(_type):
+            raise TypeError(f"{_type} is not a class.")
         return any(issubclass(_type, blocklist_type) for blocklist_type in blocklist_types)
 
     def _is_valid_param(p):
@@ -88,7 +91,8 @@ def create_config_class(
             return False
         return True
 
-    allowlist = allowlist or [p.name for p in parameters.values() if _is_valid_param(p)]
+    allowlist = allowlist or [
+        p.name for p in parameters.values() if _is_valid_param(p)]
 
     def wrapper(config_cls):
         # Add __annotations__ for dataclass

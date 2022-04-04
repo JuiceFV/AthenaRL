@@ -6,8 +6,10 @@ from dataclasses import field  # noqa
 from typing import TYPE_CHECKING, Any, Optional
 
 
-USE_VANILLA_DATACLASS = bool(int(os.environ.get("USE_VANILLA_DATACLASS", False)))
-ARBITRARY_TYPES_ALLOWED = bool(int(os.environ.get("ARBITRARY_TYPES_ALLOWED", True)))
+USE_VANILLA_DATACLASS = bool(
+    int(os.environ.get("USE_VANILLA_DATACLASS", False)))
+ARBITRARY_TYPES_ALLOWED = bool(
+    int(os.environ.get("ARBITRARY_TYPES_ALLOWED", True)))
 
 
 if TYPE_CHECKING:
@@ -41,7 +43,8 @@ else:
                     class Config:
                         arbitrary_types_allowed = ARBITRARY_TYPES_ALLOWED
 
-                    assert config not in kwargs
+                    if config in kwargs:
+                        raise KeyError("Config duplication occures")
                     kwargs["config"] = Config
 
                 return pydantic.dataclasses.dataclass(cls, **kwargs)

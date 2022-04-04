@@ -27,15 +27,17 @@ def get_sample_range(
             val_sample_range=(0.0, 0.0),
         )
 
-    error_msg = (
-        "validate is set to True. "
-        f"Please specify table_sample(current={table_sample}) and "
-        f"val_table_sample(current={val_table_sample}) such that "
-        "val_table_sample + table_sample <= 100."
-    )
-    assert table_sample is not None, error_msg
-    assert val_table_sample is not None, error_msg
-    assert (val_table_sample + table_sample) <= (100.0 + 1e-3), error_msg
+    if any([
+        table_sample is None,
+        val_table_sample is None,
+        (val_table_sample + table_sample) <= (100.0 + 1e-3)
+    ]):
+        raise ValueError(
+            "validate is set to True. "
+            f"Please specify table_sample(current={table_sample}) and "
+            f"val_table_sample(current={val_table_sample}) such that "
+            "val_table_sample + table_sample <= 100."
+        )
 
     return TrainValSampleRanges(
         train_sample_range=(0.0, table_sample),
