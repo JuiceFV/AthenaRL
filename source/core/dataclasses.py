@@ -7,9 +7,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 
 USE_VANILLA_DATACLASS = bool(
-    int(os.environ.get("USE_VANILLA_DATACLASS", False)))
+    int(os.environ.get("USE_VANILLA_DATACLASS", False))
+)
 ARBITRARY_TYPES_ALLOWED = bool(
-    int(os.environ.get("ARBITRARY_TYPES_ALLOWED", True)))
+    int(os.environ.get("ARBITRARY_TYPES_ALLOWED", True))
+)
 
 
 if TYPE_CHECKING:
