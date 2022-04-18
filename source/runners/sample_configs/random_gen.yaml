@@ -1,0 +1,16 @@
+pkl_path: ./datasets/sample_batch_gen.pickle
+generators:
+  - name: randn
+  - name: beta
+    params:
+      a: 15
+      b: 28
+features_num: 136
+buffer_dict:
+  name: FiniteEpisodesBuffer
+  params:
+    capacity: 10000
+    batch_size: 1
+    episode_capacity: 50
+    stack_size: 30
+gamma: 0.9
