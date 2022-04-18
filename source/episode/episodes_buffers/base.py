@@ -1,4 +1,5 @@
 import abc
+from collections import namedtuple
 from typing import Any, Dict, List, NamedTuple, Tuple
 
 import numpy as np
@@ -22,19 +23,23 @@ class ElementMeta:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def validate(self, name: str, value: Any):
+    def validate(self, name: str, value: Any) -> None:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def initialize_storage(self, capacity: int):
+    def initialize_storage(self, capacity: int) -> torch.Tensor:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def turn_into_storage_element(self, value: Any):
+    def turn_into_storage_element(self, value: Any) -> torch.Tensor:
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def empty_observation(self):
+    def empty_observation(self) -> Any:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def sample_to_output(self, sample: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError()
 
 
@@ -80,6 +85,10 @@ class DenseMeta(ElementMeta):
     def empty_observation(self) -> Any:
         return np.zeros(self.shape, dtype=self.dtype)
 
+    def sample_to_output(self, sample: torch.Tensor) -> torch.Tensor:
+        res: torch.Tensor = torch.einsum("ij...->i...j", sample)
+        return res.squeeze(-1) if res.shape[-1] == 1 else res
+
 
 class BufferElement(NamedTuple):
     name: str
@@ -108,10 +117,12 @@ class EpisodesBuffer(LoggerMixin):
 
         self._storage: Dict[str, torch.Tensor] = {}
         self._storage_signature: List[BufferElement] = []
+        self._batch_struct = namedtuple("filler", [])
 
         self._additional_keys: List[str] = []
         self._key_to_buffer_element: Dict[str, BufferElement] = {}
         self._empty_observation: Dict[str, Any] = {}
+        self._observation_fields: List[str] = []
 
     def _create_buffer_element(self, name: str, value: Any) -> BufferElement:
         if isinstance(value, torch.Tensor):
@@ -185,6 +196,10 @@ class EpisodesBuffer(LoggerMixin):
             self._empty_observation[el.name] = el.meta.empty_observation()
 
         self._initialize_storage()
+        self._observation_fields = self.get_observation_fields()
+        self._batch_struct = namedtuple(
+            "butch_struct", self._observation_fields
+        )
         self._initialized = True
 
         self.info(f"Initialized {self.__class__.__name__}")
@@ -194,6 +209,13 @@ class EpisodesBuffer(LoggerMixin):
         self.info(f"\t Storage inner types are:")
         for element in self.get_storage_signature():
             self.info(f"\t\t {element}")
+
+    def get_observation_fields(self) -> List[str]:
+        return [
+            "indices",
+            "step",
+            *STATIC_KEYS
+        ] + self._additional_keys
 
     def get_storage_signature(self) -> List[BufferElement]:
         return self._storage_signature
@@ -207,7 +229,7 @@ class EpisodesBuffer(LoggerMixin):
         return self._num_valid_indices
 
     @property
-    def update_horizon(self) -> int:
+    def episode_capacity(self) -> int:
         return self._episode_capacity
 
     @property
@@ -226,3 +248,75 @@ class EpisodesBuffer(LoggerMixin):
 
     def is_valid_observation(self, index: int) -> bool:
         return self._is_index_valid[index]
+
+    def sample_index_batch(self, batch_size: int) -> torch.Tensor:
+        if self._num_valid_indices == 0:
+            raise RuntimeError(
+                f"Cannot sample {batch_size} since there are no valid indices so far."
+            )
+        valid_idcs = self._is_index_valid.nonzero().squeeze(1)
+        return valid_idcs[torch.randint(valid_idcs.shape[0], (batch_size,))]
+
+    def sample_observation_batch(self, batch_size: int = None, indices: torch.Tensor = None):
+        if batch_size is None:
+            batch_size = self._batch_size
+        if indices is None:
+            indices = self.sample_index_batch(batch_size)
+        else:
+            if not isinstance(indices, torch.Tensor):
+                raise TypeError(
+                    f"Indices {indices} have type {type(indices)} but should be Tensor"
+                )
+            indices = indices.type(dtype=torch.int64)
+        if len(indices) != batch_size:
+            raise RuntimeError(
+                f"Indices len {len(indices)} and batch size deffer but shouldn't"
+            )
+        forward_indicies = torch.arange(self._episode_capacity)
+        episode_step_idcs = indices.unsqueeze(1) + forward_indicies
+        episode_step_idcs %= self._capacity
+
+        steps = self._get_steps(episode_step_idcs)
+        margin_indices = (indices + steps - 1) % self._capacity
+        margin_indices = margin_indices.unique()
+        batch_arrays = []
+        for field in self._observation_fields:
+            if field == "indices":
+                batch = indices
+            elif field == "step":
+                batch = steps
+            elif field in self._storage:
+                batch = self._get_batch_for_indices(field, margin_indices)
+            else:
+                batch = None
+
+            if isinstance(batch, torch.Tensor) and batch.ndim == 1:
+                batch = batch.unsqueeze(1)
+            batch_arrays.append(batch)
+        return self._batch_struct(*batch_arrays)
+
+    def _get_steps(self, dense_indices: torch.Tensor) -> torch.Tensor:
+        is_lasts = self._storage["is_last"][dense_indices].to(torch.bool)
+        is_lasts[:, -1] = True
+        is_lasts = is_lasts.float()
+        position_mask = torch.arange(is_lasts.shape[1] + 1, 1, -1)
+        is_lasts = torch.einsum("ij,j->ij", is_lasts, position_mask)
+        return torch.argmax(is_lasts, dim=1) + 1
+
+    def _get_batch_for_indices(self, key: str, indices: torch.Tensor):
+        if len(indices.shape) != 1:
+            raise ValueError(
+                f"The indices tensor is not 1-dimensional"
+            )
+        return self._get_stack_for_indices(key, indices)
+
+    def _get_stack_for_indices(self, key: str, indices: torch.Tensor):
+        if len(indices.shape) != 1:
+            raise ValueError(
+                f"The indices tensor is not 1-dimensional"
+            )
+        backward_indices = torch.arange(-self._stack_size + 1, 1)
+        stack_indices = indices.unsqueeze(1) + backward_indices
+        stack_indices %= self._capacity
+        values_stack = self._storage[key][stack_indices]
+        return self._key_to_buffer_element[key].meta.sample_to_output(values_stack)
