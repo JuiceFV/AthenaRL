@@ -11,6 +11,8 @@ class BaseDebugClass(abc.ABC):
 
 
 class DebugOnException(BaseDebugClass):
+    """Debug arises drops on exception.
+    """
     @staticmethod
     def start() -> None:
         def info(

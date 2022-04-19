@@ -1,3 +1,5 @@
+"""In-graph buffer implementation
+"""
 from source.episode.episodes_buffers.base import EpisodesBuffer
 
 
@@ -38,6 +40,8 @@ class FiniteEpisodesBuffer(EpisodesBuffer):
             self._episodic_num_observation = 0
 
         curr_pos = self.iter()
+        # If the buffer capacity has been exceeded do not raise the exception.
+        # Just let a user be aware about.
         try:
             self.set_index_validity(index=curr_pos, is_valid=False)
         except IndexError:
@@ -49,6 +53,8 @@ class FiniteEpisodesBuffer(EpisodesBuffer):
 
         self._add(**kwargs)
         self._episodic_num_observation += 1
+        # For the further enhancement mark the previous n indicies
+        # as valid for sampling.
         if kwargs["is_last"]:
             num_valid_obs = min(
                 self._episodic_num_observation,

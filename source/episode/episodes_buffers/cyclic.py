@@ -1,3 +1,5 @@
+"""Out-of-graph implementation.
+"""
 from source.episode.episodes_buffers.base import EpisodesBuffer
 
 
@@ -22,6 +24,8 @@ class CyclicEpisodesBuffer(EpisodesBuffer):
         )
 
     def set_index_validity(self, index: int, is_valid: bool) -> None:
+        # Due to the buffer is circular we check if the given index
+        # is already valid.
         already_valid = self._is_index_valid[index]
         if not already_valid and is_valid:
             self._num_valid_indices += 1
@@ -37,6 +41,8 @@ class CyclicEpisodesBuffer(EpisodesBuffer):
 
         self._check_addable_signature(**kwargs)
         prev_pos = (self.iter() - 1) % self._capacity
+        # If the current iteration is the beginning of an episode or buffer
+        # we add stack_size paddings.
         if self.is_empty() or self._storage["is_last"][prev_pos]:
             self._episodic_num_observation = 0
             for _ in range(self._stack_size - 1):
@@ -46,14 +52,18 @@ class CyclicEpisodesBuffer(EpisodesBuffer):
         self.set_index_validity(index=curr_pos, is_valid=False)
         if self._episodic_num_observation >= self._episode_capacity:
             start_pos = (curr_pos - self._episode_capacity) % self._capacity
+            # Mark the index as valid if the episode capacity is surpassed
             self.set_index_validity(index=start_pos, is_valid=True)
         self._add(**kwargs)
         self._episodic_num_observation += 1
 
+        # Mark next stack_size indicies as not valid (advanced iter by 1)
         for i in range(self._stack_size - 1):
             next_pos = (self.iter() + i) % self._capacity
             self.set_index_validity(index=next_pos, is_valid=False)
 
+        # For the further enhancement mark the previous n indicies
+        # as valid for sampling.
         if kwargs["is_last"]:
             num_valid_obs = min(
                 self._episodic_num_observation,

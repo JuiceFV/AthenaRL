@@ -1,3 +1,5 @@
+"""Implementation of discriminated union for the multiple dataclass handling.
+"""
 from dataclasses import fields
 
 
@@ -12,6 +14,7 @@ class DiscriminatedUnion:
         selected_fields = [
             field.name for field in fields(self) if getattr(self, field.name, None)
         ]
+        # Check if Union is discriminated
         if len(selected_fields) != 1:
             raise ValueError(
                 f"{self} Expecting one selected field, got {selected_fields}"

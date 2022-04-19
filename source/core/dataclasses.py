@@ -1,3 +1,6 @@
+"""Dataclass generally implemented for convenient way
+of type-class definition (including type checking)
+"""
 import dataclasses
 import os
 import pydantic
