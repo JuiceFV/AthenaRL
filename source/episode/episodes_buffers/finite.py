@@ -45,7 +45,7 @@ class FiniteEpisodesBuffer(EpisodesBuffer):
         try:
             self.set_index_validity(index=curr_pos, is_valid=False)
         except IndexError:
-            self.info(
+            self.warning(
                 f"The storage capacity has been surpassed: "
                 f" the element ({kwargs}) is omitted"
             )
