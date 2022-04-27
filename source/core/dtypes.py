@@ -156,7 +156,7 @@ class PreprocessedRankingInput(TensorDataClass):
     source_input_indcs: Optional[torch.Tensor] = None
     target_input_indcs: Optional[torch.Tensor] = None
     target_output_indcs: Optional[torch.Tensor] = None
-    target_output_probs: Optional[torch.Tensor] = None
+    target_output_probas: Optional[torch.Tensor] = None
 
     # Ground-truth target sequence (for teacher forcing)
     gt_target_input_indcs: Optional[torch.Tensor] = None
@@ -175,7 +175,7 @@ class PreprocessedRankingInput(TensorDataClass):
 @dataclass
 class RankingOutput(TensorDataClass):
     ordered_target_out_idcs: Optional[torch.Tensor] = None
-    ordered_per_item_probs: Optional[torch.Tensor] = None
-    ordered_per_seq_probs: Optional[torch.Tensor] = None
-    log_probs: Optional[torch.Tensor] = None
+    ordered_per_item_probas: Optional[torch.Tensor] = None
+    ordered_per_seq_probas: Optional[torch.Tensor] = None
+    log_probas: Optional[torch.Tensor] = None
     encoder_scores: Optional[torch.Tensor] = None
