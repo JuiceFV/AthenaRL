@@ -13,15 +13,21 @@ class Seq2SlateMode(Enum):
 
 
 class Seq2SlateOutputArch(Enum):
+    # Only output encoder scores
     ENCODER_SCORE = "encoder_score"
+
+    # A decoder outputs a sequence in an autoregressive way
     AUTOREGRESSIVE = "autoregressive"
+
+    # Using encoder scores, a decoder outputs a sequence using
+    # frechet sort (equivalent to iterative softmax)
     FRECHET_SORT = "frechet_sort"
 
 
 class Seq2SlateTransformerOutput(NamedTuple):
-    ordered_per_item_probs: Optional[torch.Tensor]
-    ordered_per_seq_probs: Optional[torch.Tensor]
+    ordered_per_item_probas: Optional[torch.Tensor]
+    ordered_per_seq_probas: Optional[torch.Tensor]
     ordered_target_out_idcs: Optional[torch.Tensor]
-    per_item_log_probs: Optional[torch.Tensor]
-    per_seq_log_probs: Optional[torch.Tensor]
+    per_item_log_probas: Optional[torch.Tensor]
+    per_seq_log_probas: Optional[torch.Tensor]
     encoder_scores: Optional[torch.Tensor]
