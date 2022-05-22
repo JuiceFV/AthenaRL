@@ -286,7 +286,7 @@ class CandidateGenerator(nn.Module):
         return candidate, probas_dist
 
 
-class VariableLengthPositionalEncoding(nn.Module):
+class VLPositionalEncoding(nn.Module):
     """Special non-learnable positional encoding specified 
     for the handling variable length vocabulary. To do so
     we fold the input positions to the lower dimension

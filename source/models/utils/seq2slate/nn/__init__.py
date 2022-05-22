@@ -4,7 +4,7 @@ from source.models.utils.seq2slate.nn.architecture import (
     PTDecoder,
     CandidateGenerator,
     PointwisePTDecoderLayer,
-    VariableLengthPositionalEncoding
+    VLPositionalEncoding
 )
 
 __all__ = [
@@ -13,5 +13,5 @@ __all__ = [
     "PTDecoder",
     "CandidateGenerator",
     "PointwisePTDecoderLayer",
-    "VariableLengthPositionalEncoding"
+    "VLPositionalEncoding"
 ]
