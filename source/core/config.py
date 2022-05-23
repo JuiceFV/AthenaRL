@@ -11,7 +11,6 @@ from dataclasses import MISSING, Field, fields
 from inspect import Parameter, isclass, signature
 from typing import Any, List, Optional, Type, Union
 
-from pydantic import ClassError
 
 from source.core.dataclasses import dataclass
 from torch import nn
