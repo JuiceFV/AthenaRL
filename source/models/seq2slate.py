@@ -26,7 +26,7 @@ import source.core.dtypes as dt
 import source.models.utils.seq2slate.constatnts as const
 import torch
 import torch.nn as nn
-from source.core.confg import param_hash
+from source.core.config import param_hash
 from source.core.dataclasses import dataclass
 from source.core.logger import LoggerMixin
 from source.core.utils.pytorch import gather
