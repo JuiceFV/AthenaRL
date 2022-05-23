@@ -2,7 +2,7 @@ import abc
 import os
 import unittest
 
-from source.core.confg import create_config_class, resolve_defaults
+from source.core.config import create_config_class, resolve_defaults
 from source.core.dataclasses import dataclass, field
 from source.core.discriminated_union import DiscriminatedUnion
 from source.core.registry import RegistryMeta
