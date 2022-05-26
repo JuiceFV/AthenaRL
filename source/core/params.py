@@ -1,5 +1,6 @@
 from typing import Optional
 
+from source.core.config import param_hash
 from source.core.base_dclass import BaseDataClass
 from source.core.dataclasses import dataclass
 
