@@ -1,0 +1,8 @@
+sphinx==5.0.0
+sphinxcontrib.katex
+-e git+https://bitbucket.org/Diginetica/digi_sphinx_theme#egg=digi_sphinx_theme
+matplotlib
+tensorboard
+python-etcd>=0.4.5
+sphinx_copybutton
+sphinx-panels
