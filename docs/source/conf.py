@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath('../../'))
 import digi_sphinx_theme as theme
 from digi_sphinx_theme.linkcode import bb_linkcode_helper
 
-import source as pkg
+import athena as pkg
 
 RELEASE = os.environ.get("RELEASE", False)
 

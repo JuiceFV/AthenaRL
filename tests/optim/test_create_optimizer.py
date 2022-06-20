@@ -1,7 +1,7 @@
 import unittest
 import torch
-from nastenka_solnishko.optim.uninferrable_optimizers import Adam
-from nastenka_solnishko.optim.uninferrable_schedulers import (
+from athena.optim.uninferrable_optimizers import Adam
+from athena.optim.uninferrable_schedulers import (
     CosineAnnealingLR,
     CosineAnnealingWarmRestarts,
     ExponentialLR,
@@ -10,7 +10,7 @@ from nastenka_solnishko.optim.uninferrable_schedulers import (
     StepLR
 )
 
-from nastenka_solnishko.optim.utils import is_torch_lr_scheduler, is_torch_optimizer
+from athena.optim.utils import is_torch_lr_scheduler, is_torch_optimizer
 
 class TestCreateOptimizer(unittest.TestCase):
     def setUp(self) -> None:

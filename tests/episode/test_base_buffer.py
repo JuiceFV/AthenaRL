@@ -1,5 +1,5 @@
 import unittest
-import nastenka_solnishko.episode as ep
+import athena.episode as ep
 from tests.episode.utils import *
 
 

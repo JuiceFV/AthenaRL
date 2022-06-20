@@ -2,10 +2,10 @@ import abc
 import os
 import unittest
 
-from nastenka_solnishko.core.config import create_config_class, resolve_defaults
-from nastenka_solnishko.core.dataclasses import dataclass, field
-from nastenka_solnishko.core.discriminated_union import DiscriminatedUnion
-from nastenka_solnishko.core.registry import RegistryMeta
+from athena.core.config import create_config_class, resolve_defaults
+from athena.core.dataclasses import dataclass, field
+from athena.core.discriminated_union import DiscriminatedUnion
+from athena.core.registry import RegistryMeta
 
 
 class AB:
