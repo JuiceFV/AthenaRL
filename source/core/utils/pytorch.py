@@ -1,3 +1,6 @@
+r"""
+The module redefines some PyTorch features
+"""
 import torch
 
 

@@ -17,7 +17,7 @@ def retrieve_torch_lr_schedulers() -> List[str]:
     ]
 
 
-_lr_scheduler_classes = {}
+lr_scheduler_classes = {}
 for lr_scheduler_name in retrieve_torch_lr_schedulers():
     if hasattr(cbi, lr_scheduler_name):
         subclass = getattr(cbi, lr_scheduler_name)
@@ -35,7 +35,7 @@ for lr_scheduler_name in retrieve_torch_lr_schedulers():
         )(subclass)
 
     subclass.__hash__ = param_hash
-    _lr_scheduler_classes[lr_scheduler_name] = subclass
+    lr_scheduler_classes[lr_scheduler_name] = subclass
 
 
 @LRSchedulerConfig.register()

@@ -1,4 +1,5 @@
-"""Basic data types.
+"""Basic data types required for the ranking, re-ranking and 
+recommendation problem.
 """
 import dataclasses
 import torch

@@ -1,3 +1,5 @@
+"""
+"""
 import inspect
 import torch
 from typing import Dict, Any
@@ -29,4 +31,7 @@ class LRSchedulerConfig(metaclass=RegistryMeta):
         return lr_class(optimizer=optimizer, **kwargs)
 
     def eval_lambdas(self, kwargs: Dict[str, Any]) -> None:
+        """To allow string-based configuration, we need decoder to convert
+        from strings to Callables.
+        """
         pass

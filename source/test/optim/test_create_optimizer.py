@@ -1,6 +1,4 @@
 import unittest
-import sys
-sys.path.append('/home/akasyan/reranking/nastenka-solnishko/source/optim')
 import torch
 from source.optim.uninferrable_optimizers import Adam
 from source.optim.uninferrable_schedulers import (
@@ -26,5 +24,44 @@ class TestCreateOptimizer(unittest.TestCase):
         self._verify_optimizer(
             Adam(
                 lr=0.001, lr_schedulers=[StepLR(gamma=0.1, step_size=0.01)]
+            ).create_optimizer_scheduler(self.model.parameters())
+        )
+        
+    def test_create_optimizer_with_multistep_lr_scheduler(self):
+        self._verify_optimizer(
+            Adam(
+                lr=0.001,
+                lr_schedulers=[MultiStepLR(gamma=0.2, milestones=[1000, 2000])],
+            ).create_optimizer_scheduler(self.model.parameters())
+        )
+
+    def test_create_optimizer_with_exponential_lr_scheduler(self):
+        self._verify_optimizer(
+            Adam(
+                lr=0.001, lr_schedulers=[ExponentialLR(gamma=0.9)]
+            ).create_optimizer_scheduler(self.model.parameters())
+        )
+
+    def test_create_optimizer_with_cosine_annealing_lr_scheduler(self):
+        self._verify_optimizer(
+            Adam(
+                lr=0.001, lr_schedulers=[CosineAnnealingLR(T_max=1)]
+            ).create_optimizer_scheduler(self.model.parameters())
+        )
+
+    def test_create_optimizer_with_one_cycle_lr_scheduler(self):
+        self._verify_optimizer(
+            Adam(
+                lr=0.001,
+                lr_schedulers=[
+                    OneCycleLR(max_lr=0.1, base_momentum=0.8, total_steps=1000)
+                ],
+            ).create_optimizer_scheduler(self.model.parameters())
+        )
+
+    def test_create_optimizer_with_cosine_annealing_warm_restarts_lr_scheduler(self):
+        self._verify_optimizer(
+            Adam(
+                lr=0.001, lr_schedulers=[CosineAnnealingWarmRestarts(T_0=1)]
             ).create_optimizer_scheduler(self.model.parameters())
         )

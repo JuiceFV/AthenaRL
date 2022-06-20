@@ -17,6 +17,11 @@ from source.optim.utils import is_torch_optimizer
 
 
 def retrieve_torch_optimizers() -> List[str]:
+    """Extract all optimizers from `torch.optim`.
+
+    Returns:
+        List[str]: Optimizers names.
+    """
     return [
         optimizer
         for optimizer in dir(torch.optim)
@@ -24,13 +29,18 @@ def retrieve_torch_optimizers() -> List[str]:
     ]
 
 
-_opt_classes = {}
+# Here we create optimizer dataclass from its name.
+# For those ones cannot be inferred we take predefined
+# dataclass w/ given params
+opt_classes = {}
 for opt_name in retrieve_torch_optimizers():
     if hasattr(cbi, opt_name):
         subclass = getattr(cbi, opt_name)
     else:
         opt_class = getattr(torch.optim, opt_name)
 
+        # Create a class on is instantiate from OptimizerConfig
+        # in purpose to register it in the roster
         subclass = type(
             opt_name,
             (OptimizerConfig,),
@@ -38,15 +48,22 @@ for opt_name in retrieve_torch_optimizers():
         )
         create_config_class(opt_class, blocklist=["params"])(subclass)
 
+    # make iterables hashable
     subclass.__hash__ = param_hash
-    _opt_classes[opt_name] = subclass
+    opt_classes[opt_name] = subclass
 
 
 @OptimizerConfig.register()
 class OptimizerRoster(DiscriminatedUnion):
     @classmethod
     def default(cls, **kwargs) -> "OptimizerRoster":
-        return cls(Adam=_opt_classes["Adam"](**kwargs))
+        """Specify optimizer factory w/ default optimizer.
+        The default optimizer is the `Adam`.
+
+        Returns:
+            OptimizerRoster: The factory w/ specified optimizer.
+        """
+        return cls(Adam=opt_classes["Adam"](**kwargs))
 
     def create_optimizer_scheduler(
         self, params: Iterable[Union[torch.Tensor, Dict[str, Any]]]

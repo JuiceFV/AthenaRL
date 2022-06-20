@@ -57,7 +57,7 @@ except ImportError:
 
 
 class Seq2SlateTransformerModel(nn.Module):
-    """The implementation of Seq2Slate model based on transformer encoder-decoder architecture. 
+    r"""The implementation of Seq2Slate model based on transformer encoder-decoder architecture. 
     Model itself represents stack of encoders followed by stack of decoders. The last layer of 
     decoder adapted s.t. it outputs probabilities over remaining candidates of source sequence. 
     For example source sequence is :math:`[C1, C2, ..., Cn]` and :math:`[C2, Cn]` already choosen 
@@ -104,7 +104,7 @@ class Seq2SlateTransformerModel(nn.Module):
         temperature: float = 1.0,
         latent_state_embed_dim: Optional[int] = None
     ) -> None:
-        """Initialize the model and learnable parameters.
+        r"""Initialize the model and learnable parameters.
 
         TODO: print_model_info
 
@@ -191,15 +191,15 @@ class Seq2SlateTransformerModel(nn.Module):
         target_output_indcs: Optional[torch.Tensor] = None,
         greedy: Optional[bool] = None
     ) -> torch.Tensor:
-        """Pass the input through the model.
+        r"""Pass the input through the model.
 
         Args:
             mode (str): The mode one depicts how is model performing.
                 "rank": return ranked items and their generative probabilities.
                 "per_seq_log_probas": return generative log probabilities of given
-                    target sequences (used for REINFORCE training)
+                target sequences (used for REINFORCE training)
                 "per_item_log_probas": return generative log probabilties of each
-                    item in given target sequences (used in TEACHER FORCING training)
+                item in given target sequences (used in TEACHER FORCING training)
             latent_state (torch.Tensor): Current latent state of the model.
                 shape: batch_size, latent_state_dim
             source_seq (torch.Tensor): Source sequence.
@@ -636,12 +636,12 @@ class Seq2SlateTransformerModel(nn.Module):
     def encode(self, latent_state: torch.Tensor, source_seq: torch.Tensor) -> torch.Tensor:
         """Seq2Slate encoding process.
         The process consists of two steps:
+        
         1. Combine current latent model state with new input by
-            stacking one over another. S.t. resulted embedding 
-            dimensionality will be equal to the d_model.
+        stacking one over another. S.t. resulted embedding 
+        dimensionality will be equal to the d_model.
         2. Pass this embedding through the default transformer 
-            encoder layers.
-        As result we get vectorized sequence representation.
+        encoder layers. As result we get vectorized sequence representation.
 
         Args:
             latent_state (torch.Tensor): Current latent state.

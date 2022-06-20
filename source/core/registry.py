@@ -1,13 +1,22 @@
+"""The module implements discriminated union register.
+"""
 import abc
 import os
 from source.core.logger import LoggerMixin
-from typing import Dict, Type, Optional
+from typing import Dict, Tuple, Type, Optional, Any
 from source.core.dataclasses import dataclass
 
 
 class RegistryMeta(abc.ABCMeta, LoggerMixin):
-
-    def __init__(cls, name, bases, attrs):
+    """Metaclass dedicated to autofill the discriminated unions.
+    It keeps track all subclasses and register them at one 
+    union factory named roster (via register() method). Once 
+    a roster is registered w/ all subclasses it gets frozen s.t.
+    new member cannot be added. If `SKIP_FROZEN_REGISTRY_CHECK=1`
+    warning appears instead of exception when new member is attempted 
+    to be added to the roster.
+    """
+    def __init__(cls, name: str, bases: Tuple[type, ...], attrs: Dict[str, Any]):
         if not hasattr(cls, "REGISTRY"):
             # Put REGISTRY on cls. This only happens once on the base class
             cls.info("Adding REGISTRY to type {}".format(name))
@@ -25,13 +34,11 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
                 )
             else:
                 raise RuntimeError(
-                    f"{cls.REGISTRY_NAME} has been used to fill a union and is now frozen, "
-                    f"so {name} can't be added to the registry. "
+                    f"{cls.REGISTRY_NAME} has been used to register a factory and is now frozen, "
+                    f"so {name} can't be added to the roster. "
                     "Please rearrange your import orders. Or set environment variable "
                     "SKIP_FROZEN_REGISTRY_CHECK=1 to replace this error with a warning if you "
-                    f"don't need the {name} to be added to the registry (e.g. if you're running the "
-                    "code in an interactive mode or are developing custom FBL workflows that don't "
-                    "rely on ReAgent union classes)")
+                    f"don't need the {name} to be added to the registry.")
         else:
             if not cls.__abstractmethods__ and name != cls.REGISTRY_NAME:
                 # Only register fully-defined classes
@@ -50,7 +57,8 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
         return super().__init__(name, bases, attrs)
 
     def register(cls):
-
+        """Registering a union w/ all subclasses.
+        """
         def wrapper(roster):
             cls.REGISTRY_FROZEN = True
 

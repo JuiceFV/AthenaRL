@@ -1,9 +1,16 @@
+"""
+"""
 from typing import Callable, Dict, Iterable, Optional, Union
 
 import torch
 
 
 class SoftUpdate(torch.optim.Optimizer):
+    """Perform soft-update on target_params. Soft-update gradually blends
+    source_params into target_params with this update equation:
+
+        target_param = tau * source_param + (1 - tau) * target_param
+    """
     def __init__(
         self,
         target_params: Union[Iterable[torch.Tensor], Iterable[dict]],
@@ -32,7 +39,8 @@ class SoftUpdate(torch.optim.Optimizer):
             tau = group["tau"]
             if tau > 1.0 or tau < 0.0:
                 raise ValueError(
-                    f"tau has to lie within [0, 1]; but it's {tau}")
+                    f"tau has to lie within [0, 1]; but it's {tau}"
+                )
 
     @classmethod
     def create_optimizer_scheduler(
@@ -48,6 +56,15 @@ class SoftUpdate(torch.optim.Optimizer):
     def step(
         self, closure: Optional[Callable]=None
     ) -> Optional[torch.Tensor]:
+        """Performs a single optimization step.
+
+        Args:
+            closure (Optional[Callable]):  A closure that reevaluates the model
+                and returns the loss. Defaults to None.
+
+        Returns:
+            Optional[torch.Tensor]: Calculated loss if closure is passed.
+        """
         loss = None
         if closure is not None:
             with torch.enable_grad():

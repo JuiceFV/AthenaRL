@@ -1,3 +1,10 @@
+"""This module consists of optimizer definitions ones could be inferred, because
+currently we're unable infer some default values provided by PyTorch. Here listed
+listed types that cannot be inferred:
+* tuple
+* None
+TODO: Once these types could be inferred - remove this file.
+"""
 from typing import Optional, Tuple
 
 from source.core.dataclasses import dataclass
