@@ -9,7 +9,7 @@ from typing import Callable, Tuple, Type
 import click
 from ruamel.yaml import YAML
 
-from source.core.debug import DebugOnException
+from athena.core.debug import DebugOnException
 
 
 @click.group()
@@ -38,7 +38,7 @@ def _load_runner_and_config_class(runner: str) -> Tuple[Callable, Type]:
     module = importlib.import_module(module_name)
     runner_callable = getattr(module, runner_name)
 
-    from source.core.config import create_config_class
+    from athena.core.config import create_config_class
 
     @create_config_class(runner_callable)
     class ConfigClass:
