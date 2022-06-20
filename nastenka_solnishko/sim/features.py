@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Any, Union, Dict
 
-from source.core.dataclasses import dataclass, field
+from nastenka_solnishko.core.dataclasses import dataclass, field
 
 
 @dataclass

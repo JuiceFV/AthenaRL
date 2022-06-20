@@ -1,5 +1,5 @@
-from source.model_managers.roster import ModelManagerRoster
-from source.core.dtypes import TableSpec
+from nastenka_solnishko.model_managers.roster import ModelManagerRoster
+from nastenka_solnishko.core.dtypes import TableSpec
 
 
 def build_and_train(

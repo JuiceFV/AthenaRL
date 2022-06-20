@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Any, Dict, List, Generator
 from dataclasses import asdict, field
-from source.core.dataclasses import dataclass
+from nastenka_solnishko.core.dataclasses import dataclass
 
 
 @dataclass

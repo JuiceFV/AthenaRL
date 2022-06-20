@@ -22,28 +22,28 @@ user engagment.
 """
 from typing import Optional, Tuple
 
-import source.core.dtypes as dt
-import source.models.utils.seq2slate.constatnts as const
+import nastenka_solnishko.core.dtypes as dt
+import nastenka_solnishko.models.utils.seq2slate.constatnts as const
 import torch
 import torch.nn as nn
-from source.core.config import param_hash
-from source.core.dataclasses import dataclass
-from source.core.logger import LoggerMixin
-from source.core.utils.pytorch import gather
-from source.models.base import BaseModel
-from source.models.utils.seq2slate.dtypes import (
+from nastenka_solnishko.core.config import param_hash
+from nastenka_solnishko.core.dataclasses import dataclass
+from nastenka_solnishko.core.logger import LoggerMixin
+from nastenka_solnishko.core.utils.pytorch import gather
+from nastenka_solnishko.models.base import BaseModel
+from nastenka_solnishko.models.utils.seq2slate.dtypes import (
     Seq2SlateMode,
     Seq2SlateOutputArch,
     Seq2SlateTransformerOutput
 )
-from source.models.utils.seq2slate.nn.architecture import (
+from nastenka_solnishko.models.utils.seq2slate.nn.architecture import (
     CandidateGenerator, 
     Embedding, 
     PTDecoder, 
     PTEncoder, 
     VLPositionalEncoding
 )
-from source.models.utils.seq2slate.nn.prune import (
+from nastenka_solnishko.models.utils.seq2slate.nn.prune import (
     decoder_mask,
     mask_by_index,
     per_item_to_per_seq_probas

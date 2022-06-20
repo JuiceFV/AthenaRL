@@ -56,11 +56,11 @@ import inspect
 from typing import Dict, List, Union, Iterable, Any
 
 import torch
-from source.core.dataclasses import dataclass, field
-from source.core.registry import RegistryMeta
+from nastenka_solnishko.core.dataclasses import dataclass, field
+from nastenka_solnishko.core.registry import RegistryMeta
 
-from source.optim.scheduler import LRSchedulerConfig
-from source.optim.utils import is_torch_optimizer
+from nastenka_solnishko.optim.scheduler import LRSchedulerConfig
+from nastenka_solnishko.optim.utils import is_torch_optimizer
 
 
 @dataclass(frozen=True)

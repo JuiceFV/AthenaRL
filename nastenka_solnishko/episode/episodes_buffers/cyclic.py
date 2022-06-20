@@ -1,6 +1,6 @@
 """Out-of-graph implementation.
 """
-from source.episode.episodes_buffers.base import EpisodesBuffer
+from nastenka_solnishko.episode.episodes_buffers.base import EpisodesBuffer
 
 
 class CyclicEpisodesBuffer(EpisodesBuffer):

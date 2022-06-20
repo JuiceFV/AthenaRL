@@ -8,12 +8,12 @@ their parameters' type like `tuple` and `None`.
 """
 from typing import Any, Dict, Iterable, List, Union
 
-import source.optim.uninferrable_optimizers as cbi
+import nastenka_solnishko.optim.uninferrable_optimizers as cbi
 import torch
-from source.core.config import create_config_class, param_hash
-from source.core.discriminated_union import DiscriminatedUnion
-from source.optim.optimizer import OptimizerConfig
-from source.optim.utils import is_torch_optimizer
+from nastenka_solnishko.core.config import create_config_class, param_hash
+from nastenka_solnishko.core.discriminated_union import DiscriminatedUnion
+from nastenka_solnishko.optim.optimizer import OptimizerConfig
+from nastenka_solnishko.optim.utils import is_torch_optimizer
 
 
 def retrieve_torch_optimizers() -> List[str]:

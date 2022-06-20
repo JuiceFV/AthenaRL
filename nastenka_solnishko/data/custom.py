@@ -2,8 +2,8 @@ from typing import Dict, NamedTuple, Optional, Tuple
 
 from petastorm import make_batch_reader
 from petastorm.pytorch import DataLoader
-from source.core.dtypes import Dataset, TableSpec
-from source.data.base import DataModule
+from nastenka_solnishko.core.dtypes import Dataset, TableSpec
+from nastenka_solnishko.data.base import DataModule
 
 
 class TrainValSampleRanges(NamedTuple):

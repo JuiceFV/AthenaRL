@@ -1,8 +1,8 @@
 from typing import Optional
 
-from source.core.config import param_hash
-from source.core.base_dclass import BaseDataClass
-from source.core.dataclasses import dataclass
+from nastenka_solnishko.core.config import param_hash
+from nastenka_solnishko.core.base_dclass import BaseDataClass
+from nastenka_solnishko.core.dataclasses import dataclass
 
 @dataclass(frozen=True)
 class TransformerParams(BaseDataClass):

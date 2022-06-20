@@ -1,4 +1,4 @@
-from source.core.dtypes import Dataset, TableSpec
+from nastenka_solnishko.core.dtypes import Dataset, TableSpec
 
 
 class DataLoader:

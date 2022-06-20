@@ -1,9 +1,9 @@
-from source.core.dataclasses import dataclass, field
-from source.core.params import TransformerParams, param_hash
-from source.models.base import BaseModel
-from source.models.seq2slate import Seq2SlateTransformerNetwork
-from source.models.utils.seq2slate.dtypes import Seq2SlateOutputArch
-from source.net_builder.slate_reranking_builder import SlateRerankingNetBuilder
+from nastenka_solnishko.core.dataclasses import dataclass, field
+from nastenka_solnishko.core.params import TransformerParams, param_hash
+from nastenka_solnishko.models.base import BaseModel
+from nastenka_solnishko.models.seq2slate import Seq2SlateTransformerNetwork
+from nastenka_solnishko.models.utils.seq2slate.dtypes import Seq2SlateOutputArch
+from nastenka_solnishko.net_builder.slate_reranking_builder import SlateRerankingNetBuilder
 
 
 @dataclass

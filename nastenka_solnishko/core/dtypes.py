@@ -6,8 +6,8 @@ import torch
 
 from dataclasses import dataclass, field
 from typing import Any, Optional
-from source.core.base_dclass import BaseDataClass
-from source.core.logger import LoggerMixin
+from nastenka_solnishko.core.base_dclass import BaseDataClass
+from nastenka_solnishko.core.logger import LoggerMixin
 
 
 @dataclass

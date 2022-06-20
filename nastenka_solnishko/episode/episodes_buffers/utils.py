@@ -5,7 +5,7 @@ from typing import Dict, List
 import torch
 import numpy as np
 import pandas as pd
-from source.episode.episodes_buffers.base import EpisodesBuffer
+from nastenka_solnishko.episode.episodes_buffers.base import EpisodesBuffer
 
 logger = logging.getLogger(__name__)
 

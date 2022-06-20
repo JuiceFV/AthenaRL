@@ -7,8 +7,8 @@ from typing import Any, Dict, List, NamedTuple, Tuple
 
 import numpy as np
 import torch
-from source.core.dataclasses import dataclass
-from source.core.logger import LoggerMixin
+from nastenka_solnishko.core.dataclasses import dataclass
+from nastenka_solnishko.core.logger import LoggerMixin
 
 try:
     from typing import Final

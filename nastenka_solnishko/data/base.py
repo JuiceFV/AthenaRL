@@ -2,7 +2,7 @@ import abc
 import pytorch_lightning as pl
 from typing import Dict, List, Optional
 
-from source.core.dtypes import (
+from nastenka_solnishko.core.dtypes import (
     TableSpec
 )
 

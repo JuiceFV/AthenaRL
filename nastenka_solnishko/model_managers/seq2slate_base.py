@@ -1,9 +1,9 @@
 from typing import Optional
 
-from source.core.dataclasses import dataclass
-from source.data.base import DataModule
-from source.core.dtypes import TableSpec
-from source.model_managers.manager import ModelManager
+from nastenka_solnishko.core.dataclasses import dataclass
+from nastenka_solnishko.data.base import DataModule
+from nastenka_solnishko.core.dtypes import TableSpec
+from nastenka_solnishko.model_managers.manager import ModelManager
 
 
 @dataclass

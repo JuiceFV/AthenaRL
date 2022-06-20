@@ -1,6 +1,5 @@
-import imp
-from source.core.dataclasses import dataclass
-from source.model_managers.seq2slate_base import Seq2SlateBase
+from nastenka_solnishko.core.dataclasses import dataclass
+from nastenka_solnishko.model_managers.seq2slate_base import Seq2SlateBase
 
 
 @dataclass

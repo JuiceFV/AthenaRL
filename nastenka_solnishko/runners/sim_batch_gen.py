@@ -5,10 +5,10 @@ import logging
 from typing import Any, Dict, List
 
 import pytorch_lightning as pl
-import source.episode as ep
-from source.sim.features import RandGen
-from source.sim.random_action_state import fill_episodes_buffer
-from source.episode import episodes_buffer_to_df
+import nastenka_solnishko.episode as ep
+from nastenka_solnishko.sim.features import RandGen
+from nastenka_solnishko.sim.random_action_state import fill_episodes_buffer
+from nastenka_solnishko.episode import episodes_buffer_to_df
 
 
 logger = logging.getLogger(__name__)

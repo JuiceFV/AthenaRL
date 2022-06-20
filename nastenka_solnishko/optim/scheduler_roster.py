@@ -1,12 +1,12 @@
 from typing import List
 
-import source.optim.uninferrable_schedulers as cbi
+import nastenka_solnishko.optim.uninferrable_schedulers as cbi
 import torch
-from source.core.config import create_config_class, param_hash
-from source.core.discriminated_union import DiscriminatedUnion
+from nastenka_solnishko.core.config import create_config_class, param_hash
+from nastenka_solnishko.core.discriminated_union import DiscriminatedUnion
 
-from source.optim.scheduler import LRSchedulerConfig
-from source.optim.utils import is_torch_lr_scheduler
+from nastenka_solnishko.optim.scheduler import LRSchedulerConfig
+from nastenka_solnishko.optim.utils import is_torch_lr_scheduler
 
 
 def retrieve_torch_lr_schedulers() -> List[str]:

@@ -1,8 +1,8 @@
-from source.episode.episodes_buffers import (CyclicEpisodesBuffer,
+from nastenka_solnishko.episode.episodes_buffers import (CyclicEpisodesBuffer,
                                              EpisodesBuffer,
                                              FiniteEpisodesBuffer)
-from source.episode.sequence import Sequence, SequenceEntity
-from source.episode.episodes_buffers import episodes_buffer_to_df
+from nastenka_solnishko.episode.sequence import Sequence, SequenceEntity
+from nastenka_solnishko.episode.episodes_buffers import episodes_buffer_to_df
 
 __all__ = [
     "Sequence",

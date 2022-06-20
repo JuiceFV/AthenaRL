@@ -3,10 +3,10 @@
 import inspect
 import torch
 from typing import Dict, Any
-from source.core.dataclasses import dataclass
-from source.core.registry import RegistryMeta
+from nastenka_solnishko.core.dataclasses import dataclass
+from nastenka_solnishko.core.registry import RegistryMeta
 
-from source.optim.utils import is_torch_lr_scheduler
+from nastenka_solnishko.optim.utils import is_torch_lr_scheduler
 
 
 @dataclass(frozen=True)

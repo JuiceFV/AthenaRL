@@ -7,9 +7,9 @@ TODO: Once these types could be inferred - remove this file.
 """
 from typing import Optional, Tuple
 
-from source.core.dataclasses import dataclass
+from nastenka_solnishko.core.dataclasses import dataclass
 
-from source.optim.optimizer import OptimizerConfig
+from nastenka_solnishko.optim.optimizer import OptimizerConfig
 
 
 @dataclass(frozen=True)

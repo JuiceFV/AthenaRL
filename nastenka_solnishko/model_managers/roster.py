@@ -1,7 +1,7 @@
 from typing import Optional
-from source.core.dataclasses import dataclass
-from source.core.discriminated_union import DiscriminatedUnion
-from source.model_managers.ranking.seq2slate import Seq2Slate as Seq2SlateType
+from nastenka_solnishko.core.dataclasses import dataclass
+from nastenka_solnishko.core.discriminated_union import DiscriminatedUnion
+from nastenka_solnishko.model_managers.ranking.seq2slate import Seq2Slate as Seq2SlateType
 
 
 @dataclass(frozen=True)

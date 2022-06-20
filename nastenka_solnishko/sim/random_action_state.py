@@ -3,8 +3,8 @@ import os
 from typing import Iterable, List
 
 import numpy as np
-from source.episode import EpisodesBuffer, Sequence, SequenceEntity
-from source.sim.features import RandGen, SimFeature
+from nastenka_solnishko.episode import EpisodesBuffer, Sequence, SequenceEntity
+from nastenka_solnishko.sim.features import RandGen, SimFeature
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)

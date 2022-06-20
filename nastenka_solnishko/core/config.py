@@ -12,7 +12,7 @@ from inspect import Parameter, isclass, signature
 from typing import Any, List, Optional, Type, Union
 
 
-from source.core.dataclasses import dataclass
+from nastenka_solnishko.core.dataclasses import dataclass
 from torch import nn
 
 

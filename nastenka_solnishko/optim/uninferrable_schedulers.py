@@ -8,8 +8,8 @@ TODO: Once these types could be inferred - remove this file.
 """
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from source.core.dataclasses import dataclass
-from source.optim.scheduler import LRSchedulerConfig
+from nastenka_solnishko.core.dataclasses import dataclass
+from nastenka_solnishko.optim.scheduler import LRSchedulerConfig
 
 
 class _LRLambdaMixin(object):

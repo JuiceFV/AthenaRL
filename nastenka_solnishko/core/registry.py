@@ -2,9 +2,9 @@
 """
 import abc
 import os
-from source.core.logger import LoggerMixin
+from nastenka_solnishko.core.logger import LoggerMixin
 from typing import Dict, Tuple, Type, Optional, Any
-from source.core.dataclasses import dataclass
+from nastenka_solnishko.core.dataclasses import dataclass
 
 
 class RegistryMeta(abc.ABCMeta, LoggerMixin):
