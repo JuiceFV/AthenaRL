@@ -3,7 +3,7 @@ from typing import List
 import athena.optim.uninferrable_schedulers as cbi
 import torch
 from athena.core.config import create_config_class, param_hash
-from athena.core.discriminated_union import DiscriminatedUnion
+from athena.core.registry import DiscriminatedUnion
 
 from athena.optim.scheduler import LRSchedulerConfig
 from athena.optim.utils import is_torch_lr_scheduler

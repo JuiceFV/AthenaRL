@@ -11,7 +11,7 @@ from typing import Any, Dict, Iterable, List, Union
 import athena.optim.uninferrable_optimizers as cbi
 import torch
 from athena.core.config import create_config_class, param_hash
-from athena.core.discriminated_union import DiscriminatedUnion
+from athena.core.registry import DiscriminatedUnion
 from athena.optim.optimizer import OptimizerConfig
 from athena.optim.utils import is_torch_optimizer
 
