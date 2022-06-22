@@ -1,6 +1,6 @@
 from typing import Optional
 from athena.core.dataclasses import dataclass
-from athena.core.discriminated_union import DiscriminatedUnion
+from athena.core.registry import DiscriminatedUnion
 from athena.model_managers.ranking.seq2slate import Seq2Slate as Seq2SlateType
 
 
