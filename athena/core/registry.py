@@ -1,20 +1,111 @@
-"""The module implements discriminated union register.
+r"""
+The module implements discriminated union register.
 """
 import abc
 import os
-from athena.core.logger import LoggerMixin
-from typing import Dict, Tuple, Type, Optional, Any
+from dataclasses import fields
+from typing import Any, Callable, Dict, Optional, Tuple, Type
+
 from athena.core.dataclasses import dataclass
+from athena.core.logger import LoggerMixin
+
+
+class DiscriminatedUnion:
+    r"""
+    `Discriminated union <https://en.wikipedia.org/wiki/Tagged_union>`_ allows us get 
+    a value that could take one of several different but fixed types. Assuming that 
+    subclasses are pydantic's dataclass. All the fields must be ``Optional``
+    with ``None`` as default value. This doesn't support changing selected field/value.
+    """
+
+    @property
+    def value(self) -> object:
+        r"""
+        Returns the value of the existing instance of roster.
+
+        Raises:
+            ValueError: If several values are defined.
+
+        Returns:
+            object: Selected instance.
+        """
+        selected_fields = [
+            field.name for field in fields(self) if getattr(self, field.name, None)
+        ]
+        # Check if Union is discriminated
+        if len(selected_fields) != 1:
+            raise ValueError(
+                f"{self} Expecting one selected field, got {selected_fields}"
+            )
+        return getattr(self, selected_fields[0])
+
+
+class DiscriminatedUnion:
+    r"""
+    `Discriminated union <https://en.wikipedia.org/wiki/Tagged_union>`_ allows us get 
+    a value that could take one of several different but fixed types. Assuming that 
+    subclasses are pydantic's dataclass. All the fields must be :attr:`Optional`
+    with :attr:`None` as default value. This doesn't support changing selected field/value.
+    """
+
+    @property
+    def value(self) -> object:
+        r"""
+        Returns the value of the existing instance of roster.
+
+        Raises:
+            ValueError: If several values are defined.
+
+        Returns:
+            object: Selected instance.
+        """
+        selected_fields = [
+            field.name for field in fields(self) if getattr(self, field.name, None)
+        ]
+        # Check if Union is discriminated
+        if len(selected_fields) != 1:
+            raise ValueError(
+                f"{self} Expecting one selected field, got {selected_fields}"
+            )
+        return getattr(self, selected_fields[0])
 
 
 class RegistryMeta(abc.ABCMeta, LoggerMixin):
-    """Metaclass dedicated to autofill the discriminated unions.
+    r"""
+    Metaclass dedicated to autofill the discriminated unions.
     It keeps track all subclasses and register them at one 
-    union factory named roster (via register() method). Once 
-    a roster is registered w/ all subclasses it gets frozen s.t.
-    new member cannot be added. If `SKIP_FROZEN_REGISTRY_CHECK=1`
+    union factory named roster (via :func:`register()` method). Once 
+    a roster is registered with all subclasses it gets frozen s.t.
+    new member cannot be added. If :attr:`SKIP_FROZEN_REGISTRY_CHECK=1`
     warning appears instead of exception when new member is attempted 
     to be added to the roster.
+
+    Examples::
+
+        class Tracker(metaclass=RegistryMeta):
+           def some_common_method(self):
+               pass 
+
+        class TrackedClass1(Tracker):
+            a: str
+            b: int  
+
+        class TrackerClass2(Tracker):
+            a: str
+            b: int
+            c: float  
+
+        @Tracker.register()
+        class ClassesRoster(DiscriminatedUnion):
+            pass
+        
+        # If no instance is passed then the roster
+        # will be empty and no value will be returned
+        ClassesRoster()
+        
+        # If an instance is passed the roster will retain
+        # it and the value is exactly the given instance
+        ClassesRoster(TrackedClass1=TrackedClass1("Hello", 5)),
     """
     def __init__(cls, name: str, bases: Tuple[type, ...], attrs: Dict[str, Any]):
         if not hasattr(cls, "REGISTRY"):
@@ -56,13 +147,25 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
                 )
         return super().__init__(name, bases, attrs)
 
-    def register(cls):
-        """Registering a union w/ all subclasses.
+    def register(cls: "RegistryMeta") -> Callable[[DiscriminatedUnion], DiscriminatedUnion]:
         """
-        def wrapper(roster):
+        Register all :attr:`cls` subclasses to the given roster.
+
+        Args:
+            cls (RegistryMeta): The tracker class. Generally, it 
+                depicts the purpose of its subclasses.
+
+        Returns:
+            Callable[[DiscriminatedUnion], DiscriminatedUnion]: 
+                Callable which modifies given roster by puting 
+                all subclasses into it.
+        """
+        def wrapper(roster: DiscriminatedUnion) -> DiscriminatedUnion:
             cls.REGISTRY_FROZEN = True
 
-            def make_roster_instance(inst, instance_class=None):
+            def make_roster_instance(
+                inst: object, instance_class: Optional[type] = None
+            ) -> object:
                 inst_class = instance_class or type(inst)
                 key = getattr(
                     inst_class, "__registry_name__",
