@@ -1,6 +1,5 @@
 from typing import Optional
 
-from athena.core.config import param_hash
 from athena.core.base_dclass import BaseDataClass
 from athena.core.dataclasses import dataclass
 
