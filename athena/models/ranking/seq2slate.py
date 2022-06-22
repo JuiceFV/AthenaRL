@@ -22,38 +22,22 @@ user engagment.
 """
 from typing import Optional, Tuple
 
-import athena.core.dtypes as dt
-import athena.models.utils.seq2slate.constatnts as const
 import torch
 import torch.nn as nn
+from athena import gather
 from athena.core.config import param_hash
 from athena.core.dataclasses import dataclass
+from athena.core.dtypes import (PreprocessedRankingInput, RankingOutput,
+                                Seq2SlateMode, Seq2SlateOutputArch,
+                                Seq2SlateTransformerOutput,
+                                TransformerConstants)
 from athena.core.logger import LoggerMixin
-from athena.core.utils.pytorch import gather
 from athena.models.base import BaseModel
-from athena.models.utils.seq2slate.dtypes import (
-    Seq2SlateMode,
-    Seq2SlateOutputArch,
-    Seq2SlateTransformerOutput
-)
-from athena.models.utils.seq2slate.nn.architecture import (
-    CandidateGenerator, 
-    Embedding, 
-    PTDecoder, 
-    PTEncoder, 
-    VLPositionalEncoding
-)
-from athena.models.utils.seq2slate.nn.prune import (
-    decoder_mask,
-    mask_by_index,
-    per_item_to_per_seq_probas
-)
-
-# FIXME: As soon as all DS services migrate python3.8+
-try:
-    from typing import Final
-except ImportError:
-    from typing_extensions import Final
+from athena.nn.arch import (PointwisePTDecoder, PTEncoder, SimplexSampler,
+                            TransformerEmbedding, VLPositionalEncoding)
+from athena.nn.functional import prod_probas
+from athena.nn.utils.prune import mask_by_index
+from athena.nn.utils.transformer import decoder_mask
 
 
 class Seq2SlateTransformerModel(nn.Module):
@@ -142,15 +126,15 @@ class Seq2SlateTransformerModel(nn.Module):
         if latent_state_embed_dim is None:
             latent_state_embed_dim = dim_model // 2
         candidate_embed_dim = dim_model - latent_state_embed_dim
-        self.latent_state_embedding = Embedding(
+        self.latent_state_embedding = TransformerEmbedding(
             self.latent_state_dim, latent_state_embed_dim
         )
-        self.candidate_embedding = Embedding(
+        self.candidate_embedding = TransformerEmbedding(
             self.candidate_dim, candidate_embed_dim
         )
 
-        self._padding_symbol = const.PADDING_SYMBOL
-        self._decoder_start_symbol = const.DECODER_START_SYMBOL
+        self._padding_symbol = TransformerConstants.PADDING_SYMBOL
+        self._decoder_start_symbol = TransformerConstants.DECODER_START_SYMBOL
 
         self._rank_mode_val = Seq2SlateMode.RANK_MODE.value
         self._per_item_log_prob_dist_mode_val = Seq2SlateMode.PER_ITEM_LOG_PROB_DIST_MODE.value
@@ -165,10 +149,10 @@ class Seq2SlateTransformerModel(nn.Module):
             self.dim_model, self.dim_feedforward, self.nheads, self.nlayers
         )
         self.encoder_scorer = nn.Linear(self.dim_model, 1)
-        self.decoder = PTDecoder(
+        self.decoder = PointwisePTDecoder(
             self.dim_model, self.dim_feedforward, self.nheads, self.nlayers
         )
-        self.gc = CandidateGenerator()
+        self.gc = SimplexSampler()
         self.vl_positional_encoding = VLPositionalEncoding(self.dim_model)
         self._initialize_learnable_params()
 
@@ -329,9 +313,7 @@ class Seq2SlateTransformerModel(nn.Module):
                 latent_state, memory, featurewise_seq, target_seq_len, greedy
             )
         # Sequence probability is the product of each sequence's individual
-        ordered_per_seq_probas = per_item_to_per_seq_probas(
-            ordered_per_item_probas, target_output_indcs
-        )
+        ordered_per_seq_probas = prod_probas(ordered_per_item_probas, target_output_indcs)
         return Seq2SlateTransformerOutput(
             ordered_per_item_probas=ordered_per_item_probas,
             ordered_per_seq_probas=ordered_per_seq_probas,
@@ -371,8 +353,8 @@ class Seq2SlateTransformerModel(nn.Module):
             batch_size, target_seq_len, num_of_candidates, device=device
         )
         # memory is the encoder output intended to be incorporated
-        # in decoding process therefore its shape is: batch_size, 
-        # src_seq_len, dim_model. But we want use them directly 
+        # in decoding process therefore its shape is: batch_size,
+        # src_seq_len, dim_model. But we want use them directly
         # s.t. embed them into 1D making their shape batch_size, src_seq_len
         encoder_scores = self.encoder_scorer(memory).squeeze(dim=2)
         target_output_indcs = torch.argsort(
@@ -434,7 +416,7 @@ class Seq2SlateTransformerModel(nn.Module):
             # take already choosen items to recalculate generative probabilities
             # considering the item selected at last step.
             target_input_seq = gather(featurewise_seq, target_input_indcs)
-            # Extract sequential probability distribution accounting most 
+            # Extract sequential probability distribution accounting most
             # probable item drawn at previous step. Therefore at each step
             # we will get varying distributions over remaining items s.t.
             # taking higher order items' interactions into account.
@@ -493,10 +475,10 @@ class Seq2SlateTransformerModel(nn.Module):
             (batch_size, 1), self._decoder_start_symbol, dtype=torch.long, device=device
         )
         # take the first element at each input (decoder start symbol)
-        # thus decoder will output the probabilities over the entire 
+        # thus decoder will output the probabilities over the entire
         # sequence in one step.
         target_input_seq = gather(featurewise_seq, target_input_indcs)
-        # decoder outputs probabilities over each symbol (item) for 
+        # decoder outputs probabilities over each symbol (item) for
         # each target sequnce position. We consider the current position.
         # probs shape: batch_size, num_of_candidates
         probas = self.decode(
@@ -580,9 +562,7 @@ class Seq2SlateTransformerModel(nn.Module):
                 encoder_scores=None
             )
         # shape: batch_size, 1
-        per_seq_log_probas = torch.log(
-            per_item_to_per_seq_probas(probas, target_output_indcs)
-        )
+        per_seq_log_probas = torch.log(prod_probas(probas, target_output_indcs))
         return Seq2SlateTransformerOutput(
             ordered_per_item_probas=None,
             ordered_per_seq_probas=None,
@@ -636,7 +616,7 @@ class Seq2SlateTransformerModel(nn.Module):
     def encode(self, latent_state: torch.Tensor, source_seq: torch.Tensor) -> torch.Tensor:
         """Seq2Slate encoding process.
         The process consists of two steps:
-        
+
         1. Combine current latent model state with new input by
         stacking one over another. S.t. resulted embedding 
         dimensionality will be equal to the d_model.
@@ -652,7 +632,7 @@ class Seq2SlateTransformerModel(nn.Module):
         Returns:
             torch.Tensor: Sequence represented as embeddings.
                 shape: batch_size, src_seq_len, dim_model
-            
+
         """
         batch_size, max_source_seq_len = source_seq.shape[:2]
         # candidate_embed: batch_size, source_seq_len, dim_model/2
@@ -693,10 +673,10 @@ class Seq2SlateTransformerModel(nn.Module):
         obtained from attention sublayer of the decoder. By these
         we evaluate high-order inference between the items taking
         already set ones into the account.
-        
+
         NOTE: Last decoder layer is modified s.t. it outputs the 
         probabilities over target sequence (vocabulary)
-         
+
 
         Args:
             memory (torch.Tensor): Encoder output depicts how important 
@@ -759,7 +739,7 @@ class Seq2SlateTransformerModel(nn.Module):
             target2target_mask, target2source_mask = decoder_mask(
                 memory, target_input_indcs, self.nheads
             )
-            # Apply decoder layers 
+            # Apply decoder layers
             probas = self.decoder(
                 target_embed, memory, target2target_mask, target2source_mask
             )
@@ -790,7 +770,7 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
 
     def forward(
         self,
-        input: dt.PreprocessedRankingInput,
+        input: PreprocessedRankingInput,
         mode: Seq2SlateMode,
         target_seq_len: Optional[int] = None,
         greedy: Optional[bool] = None
@@ -803,7 +783,7 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
                 target_seq_len=target_seq_len,
                 greedy=greedy
             )
-            return dt.RankingOutput(
+            return RankingOutput(
                 ordered_target_out_idcs=result.ordered_target_out_idcs,
                 ordered_per_item_probas=result.ordered_per_item_probas,
                 ordered_per_seq_probas=result.ordered_per_seq_probas,
@@ -834,7 +814,7 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
                 log_probas = result.per_item_log_probas
             else:
                 log_probas = result.per_seq_log_probas
-            return dt.RankingOutput(log_probas=log_probas)
+            return RankingOutput(log_probas=log_probas)
         elif mode == Seq2SlateMode.ENCODER_SCORE_MODE:
             if input.target_output_indcs is None:
                 raise ValueError(
@@ -846,7 +826,7 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
                 source_seq=input.source_seq.repr,
                 target_output_indcs=input.target_output_indcs
             )
-            return dt.RankingOutput(encoder_scores=result.encoder_scores)
+            return RankingOutput(encoder_scores=result.encoder_scores)
         else:
             raise NotImplementedError()
 
