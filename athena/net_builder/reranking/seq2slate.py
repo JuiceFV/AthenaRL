@@ -1,8 +1,7 @@
 from athena.core.dataclasses import dataclass, field
-from athena.core.params import TransformerParams, param_hash
-from athena.models.base import BaseModel
-from athena.models.seq2slate import Seq2SlateTransformerNetwork
-from athena.models.utils.seq2slate.dtypes import Seq2SlateOutputArch
+from athena.core.dtypes import Seq2SlateOutputArch
+from athena.core.parameters import TransformerParams, param_hash
+from athena.models import BaseModel, Seq2SlateTransformerNetwork
 from athena.net_builder.slate_reranking_builder import SlateRerankingNetBuilder
 
 
