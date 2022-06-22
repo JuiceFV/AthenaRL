@@ -9,7 +9,7 @@ config file compatible to the runner arguments (types including).
 import functools
 from dataclasses import MISSING, Field, fields
 from inspect import Parameter, isclass, signature
-from typing import Any, List, Optional, Type, Union
+from typing import Any, Callable, List, Optional, Type, Union
 
 
 from athena.core.dataclasses import dataclass
@@ -19,11 +19,11 @@ from torch import nn
 BLOCKLIST_TYPES = [nn.Module]
 
 
-def _get_param_annotation(param: Any) -> Type:
+def _get_param_annotation(param: Parameter) -> type:
     """Retrieve parameter type annotation.
 
     Args:
-        param (Any): A parameter of some type.
+        param (Parameter): A parameter of some type.
 
     Raises:
         ValueError: If not annotated and unable to infer type from default
@@ -54,20 +54,46 @@ def _get_param_annotation(param: Any) -> Type:
 
 
 def create_config_class(
-    func,
+    func: Callable,
     allowlist: Optional[List[str]] = None,
     blocklist: Optional[List[str]] = None,
-    blocklist_types: List[Type] = BLOCKLIST_TYPES,
-):
-    """
-    Create a decorator to create dataclass with the arguments of `func` as fields.
+    blocklist_types: List[type] = BLOCKLIST_TYPES,
+) -> Callable[[type], object]:
+    r"""
+    Create a decorator to create dataclass with the arguments of :attr:`func` as fields.
     Only annotated arguments are converted to fields. If the default value is mutable,
-    you must use `dataclass.field(default_factory=default_factory)` as default.
-    In that case, the func has to be wrapped with @resolve_defaults below.
+    you must use :attr:`dataclass.field(default_factory=default_factory)` as default.
+    In that case, the func has to be wrapped with :func:`resolve_defaults` below.
 
-    `allowlist` & `blocklist` are mutually exclusive.
+    .. note::
+        
+        ``allowlist`` & ``blocklist`` are mutually exclusive.
+        
+    Example::
+
+        def func(a: int, b: str = "Hellow World"):
+            pass
+
+        @create_config_class(func)
+        class FuncClass:
+            pass
+        
+        FuncClass(1) # FuncClass(a=1, b='Hellow World')
+
+    Args:
+        func (Callable): Function from one's parameters dataclass is created.
+        allowlist (Optional[List[str]], optional): Acceptable fields. Defaults to :attr:`None`.
+        blocklist (Optional[List[str]], optional): Prohibited fields. Defaults to :attr:`None`.
+        blocklist_types (List[Type], optional): Prohibited types. Defaults to :attr:`BLOCKLIST_TYPES`.
+
+    Raises:
+        ValueError: If allowlist & blocklist are mutually exclusive.
+        TypeError: If a param is :attr:`Union` it has to be :attr:`Optional`.
+        TypeError: If param isn't python class.
+
+    Returns:
+        Callable[[type], object]: Callable which makes class with fields from :attr:`func` params.
     """
-
     parameters = signature(func).parameters
 
     if allowlist and blocklist:
@@ -75,7 +101,7 @@ def create_config_class(
 
     blocklist_set = set(blocklist or [])
 
-    def _is_type_in_blocklist(_type: Type):
+    def _is_type_in_blocklist(_type: type) -> bool:
         if getattr(_type, "__origin__", None) is Union:
             if len(_type.__args__) != 2 or _type.__args__[1] != type(None):
                 raise TypeError(
@@ -88,7 +114,7 @@ def create_config_class(
             raise TypeError(f"{_type} is not a class.")
         return any(issubclass(_type, blocklist_type) for blocklist_type in blocklist_types)
 
-    def _is_valid_param(p):
+    def _is_valid_param(p: Parameter) -> bool:
         if p.name in blocklist_set:
             return False
         if p.annotation == Parameter.empty and p.default == Parameter.empty:
@@ -99,9 +125,10 @@ def create_config_class(
         return True
 
     allowlist = allowlist or [
-        p.name for p in parameters.values() if _is_valid_param(p)]
+        p.name for p in parameters.values() if _is_valid_param(p)
+    ]
 
-    def wrapper(config_cls):
+    def wrapper(config_cls: type) -> object:
         # Add __annotations__ for dataclass
         config_cls.__annotations__ = {
             field_name: _get_param_annotation(parameters[field_name])
@@ -137,9 +164,19 @@ def _resolve_default(val):
     raise ValueError("No default value")
 
 
-def resolve_defaults(func):
-    """
-    Use this decorator to resolve default field values in the constructor.
+def resolve_defaults(func: Callable) -> Callable:
+    r"""
+     Use this decorator to resolve default field values in the constructor.
+
+    Args:
+        func (Callable): Function with mutable parameter one has to be
+            resolved.
+
+    Raises:
+        ValueError: If number of given param values not fits to number of params.
+
+    Returns:
+        Callable: Callable one resolve the mutable defaults.
     """
 
     func_params = list(signature(func).parameters.values())
@@ -163,16 +200,22 @@ def resolve_defaults(func):
     return wrapper
 
 
-def param_hash(p) -> int:
-    """
-    Use this to make parameters hashable. This is required because __hash__()
-    is not inherited when subclass redefines __eq__(). We only need this when
+def param_hash(p: Parameter) -> int:
+    r"""
+    Use this to make parameters hashable. This is required because :func:`__hash__`
+    is not inherited when subclass redefines :func:`__eq__`. We only need this when
     the parameter dataclass has a list or dict field.
+
+    Args:
+        p (Parameter): Parameter to hash.
+
+    Returns:
+        int: Hash of given parameter ``p``.
     """
     return hash(tuple(_hash_field(getattr(p, f.name)) for f in fields(p)))
 
 
-def _hash_field(val):
+def _hash_field(val: Any) -> Any:
     """
     Returns hashable value of the argument. A list is converted to a tuple.
     A dict is converted to a tuple of sorted pairs of key and value.
