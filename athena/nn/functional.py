@@ -4,14 +4,25 @@ import torch
 def prod_probas(
     probas: torch.Tensor, indices: torch.Tensor
 ) -> torch.Tensor:
-    """Accumulate items probabilities into overall sequence probability.
-    :math:`P_{s} = P_{i_1} x ... x P_{i_n}`
+    r"""
+    Accumulate items probabilities into overall sequence probability.
+    
+    .. math::
+
+        P(s) = \prod_{j=1}^{|s|}{P(i_j)}
 
     Args:
-        probas (torch.Tensor): Probability of each symbol in the target_output_inds.
-            shape: batch_size, seq_len, num_of_items
+        probas (torch.Tensor): Probability of each symbol to be placed.
         indices (torch.Tensor): Result arangement indices.
-            shape: batch_size, seq_len
+            
+    Shape:
+        - probas: :math:`(B, S, I)`
+        - indices: :math:`(B, S)`
+        
+    Notations:
+        - :math:`B` - batch size.
+        - :math:`S` - length of sequence.
+        - :math:`I` - number of entities which form probability distribution.
 
     Returns:
         torch.Tensor: Probability of the sequence.

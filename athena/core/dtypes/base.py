@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from dataclasses import dataclass
 
 import torch
@@ -28,6 +28,24 @@ class ReaderOptions:
 
 @dataclass
 class TensorDataClass(BaseDataClass, LoggerMixin):
+    r"""
+    The base data structure represents n-dimensional tensor-based data.
+    Generally, we don't need internal :class:`torch.Tensor` implementation 
+    to represent tensor-based data, i.e. the explicit interface is enough. 
+    If a structure has multiple :class:`torch.Tensor` fields then attribute
+    call will be applied to each one.
+
+    Example::
+
+        @dataclass
+        class DocSeq(TensorDataClass):
+            repr: torch.Tensor
+            mask: Optional[torch.Tensor] = None
+
+        docs = DocSeq(torch.Tensor(1, 3), torch.ones(1,3, dtype=torch.bool))
+        docs.is_shared() # DocSeq(repr=False, mask=False)
+    """
+
     def __getattr__(self, __name: str):
         if __name.startswith("__") and __name.endswith("__"):
             raise AttributeError(
@@ -63,8 +81,44 @@ class TensorDataClass(BaseDataClass, LoggerMixin):
                 if isinstance(obj, tuple):
                     return tuple(recursive_call(value) for value in obj)
                 return obj
-            return type(self)(*recursive_call(**self.__dict__))
+            return type(self)(**recursive_call(self.__dict__))
         return tensor_attrs_call
+
+    def cuda(self, *args, **kwargs) -> Union["TensorDataClass", torch.Tensor]:
+        """Returns a copy of this object in CUDA memory.
+
+        Args:
+            *args: Arguments required by :func:`torch.Tensor.cuda`
+            **kwargs: Keyword arguments required by :func:`torch.Tensor.cuda`
+
+        Returns:
+            Union["TensorDataClass", torch.Tensor]: Copy of the object
+        """
+        cuda_tensor = {}
+        for k, v in self.__dict__.items():
+            if isinstance(v, torch.Tensor):
+                kwargs["non_blocking"] = kwargs.get("non_blocking", True)
+                cuda_tensor[k] = v.cuda(*args, **kwargs)
+            elif isinstance(v, TensorDataClass):
+                cuda_tensor[k] = v.cuda(*args, **kwargs)
+            else:
+                cuda_tensor[k] = v
+        return type(self)(**cuda_tensor)
+
+    def cpu(self) -> Union["TensorDataClass", torch.Tensor]:
+        r"""
+        Returns a copy of this object in CPU memory.
+
+        Returns:
+            Union["TensorDataClass", torch.Tensor]: Copy of the object.
+        """
+        cpu_tensor = {}
+        for k, v in self.__dict__.items():
+            if isinstance(v, (torch.Tensor, TensorDataClass)):
+                cpu_tensor[k] = v.cpu()
+            else:
+                cpu_tensor[k] = v
+        return type(self)(**cpu_tensor)
 
 
 @dataclass

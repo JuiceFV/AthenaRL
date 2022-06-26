@@ -1,5 +1,4 @@
 import math
-from typing import Tuple
 import torch
 import torch.nn as nn
 import torch.nn.modules.transformer as transformer
@@ -8,44 +7,69 @@ from athena.nn.arch import Embedding
 
 
 class TransformerEmbedding(Embedding):
-    """Learnable embedings is the first step in both
-    encoder and decoder parts. The input and output
-    tokens project to the dimensionally fixed space (d_model)
-    via linear transformations, thus making these embeddings
-    learnable. For the details see [2] Section 3.4.
+    r"""
+    The copy of :class:`Embedding` except the projection process.
+    Due to the embedding layers and last linear transformation layer
+    share the same weight matrix we scale the weights by the factor 
+    :math:`\sqrt{d_{model}}`. See details in “`Attention Is All You Need
+    <https://arxiv.org/abs/1706.03762>`_” section 3.4.
+    
+    Example::
+
+        >>> embed = TransformerEmbedding(136, 512)
+        >>> input = torch.rand(10, 10,136)
+        >>> out = embed(input) # input was scaled
+        >>> out.shape
+        torch.Size([10, 10, 512])
     """
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """The projection of original input/output tokens of a sequence
         to the fixed-dimensionally space via linear transformation.
-        Due to the embedding layers (2 layers) and last linear transformation layer
-        share the same weight matrix we scale the weights by the factor sqrt(d_model).
 
         Args:
             input (torch.Tensor): Original input/output tokens.
-                shape: batch_size, seq_len, candidate_dim
+
+        Shape:
+            - input: :math:`(B, I, H_{in})`
+            - output: :math:`(B, I, H_{out})`
+
+        Notification:
+            - :math:`B` - Batch size.
+            - :math:`I` - Number of tokens in a sequence.
+            - :math:`H_{in}` - Dimensionality of input data element.
+            - :math:`H_{out}` - Dimensionality of a fixed space.
 
         Returns:
             torch.Tensor: Scaled embeddings.
-                shape: batch_size, seq_len, out_features
         """
         output = super().forward(input) * math.sqrt(self.out_features)
         return output
 
 
 class PTEncoder(nn.Module):
-    """Transformer encoder implementation based on PyTorch officials.
+    r"""
+    Transformer encoder implementation based on PyTorch officials
+    :class:`torch.nn.TransformerEncoder`.
+
+    Args:
+        dim_model (int): Dimension of learnable weights matrix :math:`W^{d_{model} \times d_*}`.
+        dim_feedforward (int): Dimension of hidden layers of feedforward network.
+        nheads (int): Number of heads in self attention mechanism.
+        nlayers (int): Number of stacked layers in the encoder.
+
+    .. important:: 
+
+        Note that ``dropout`` is set to 0.
+        
+    Example::
+
+        >>> encoder = PTEncoder(512, 2048, 8, 6)
+        >>> input = torch.rand(10, 32, 512)
+        >>> out = encoder(input)
     """
 
     def __init__(self, dim_model: int, dim_feedforward: int, nheads: int, nlayers: int) -> None:
-        """Initialization of transformer-based encoder.
-
-        Args:
-            dim_model (int): Dimension of learnable weights matrix :math:`W^{d_model x d_*}`.
-            dim_feedforward (int): Dimension of hidden layers of feedforward network.
-            nheads (int): Number of heads in self attention mechanism.
-            nlayers (int): Number of stacked layers in the encoder.
-        """
         super().__init__()
         self.layer = nn.TransformerEncoderLayer(
             d_model=dim_model,
@@ -58,17 +82,23 @@ class PTEncoder(nn.Module):
         )
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
-        """Pass the input tokens embedings through the `self.nlayers`
-        stacked encoder to get the latent state. In [1] it's described
-        as :math:`{x_i}^n -> {e_i}^n`, where :math:`e_i = Encoder(x_i)`.
+        r"""
+        Pass the input tokens embedings through the ``nlayers`` stacked encoder.
 
         Args:
-            input (torch.Tensor): Embedded input tokens (items) combined w/ its positions.
-                shape: batch_size, source_seq_len, dim_model
+            input (torch.Tensor): Embedded input tokens (items) combined with its positions.
+
+        Shape:
+            - input: :math:`(B, S, d_{model})`
+            - output: :math:`(B, S, d_{model})`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`S` - source sequence length.
+            - :math:`d_{model}` - Dimension of learnable weights matrix.
 
         Returns:
-            torch.Tensor: p-dimensional latent state for every token in sequence.
-                shape: batch_size, source_seq_len, dim_model
+            torch.Tensor: Encoded representation of a sequence.
         """
         # Adjust the input for the PyTorch format (batch_size as second dim)
         # TODO: replace with batch_first in the layer init
@@ -79,6 +109,30 @@ class PTEncoder(nn.Module):
 
 
 class PTDecoder(nn.Module):
+    r"""
+    Transformer decoder implementation based on PyTorch officials
+    :class:`torch.nn.TransformerDecoder`.
+
+    Args:
+        dim_model (int): Dimension of learnable weights matrix :math:`W^{d_{model} \times d_*}`.
+        dim_feedforward (int): Dimension of hidden layers of feedforward network.
+        nheads (int): Number of heads in self attention mechanism.
+        nlayers (int): Number of stacked layers in the encoder.
+
+    .. important:: 
+
+        Note that ``dropout`` is set to 0.
+        
+    Example::
+
+        >>> decoder = PTDecoder(512, 2048, 8, 6)
+        >>> memory = torch.rand(10, 32, 512)
+        >>> target = torch.rand(10, 10, 512)
+        >>> out = decoder(target, memory)
+        >>> out.shape
+        torch.Size([10, 10, 512])
+    """
+
     def __init__(self, dim_model: int, dim_feedforward: int, nheads: int, nlayers: int) -> None:
         super().__init__()
 
@@ -92,19 +146,42 @@ class PTDecoder(nn.Module):
             self.layer, num_layers=nlayers
         )
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, target: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        r"""
+        Pass the input tokens embedings through the ``nlayers`` stacked decoder.
+
+        Args:
+            target (torch.Tensor): Embedded output tokens combined with its positions.
+            mask (torch.Tensor): The embedded source tokens from last encoder layer.
+
+        Shape:
+            - target: :math:`(B, T, d_{model})`
+            - mask: :math:`(B, S, d_{model})`
+            - output: :math:`(B, T, d_{model})`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`T` - target sequence length.
+            - :math:`d_{model}` - Dimension of learnable weights matrix.
+
+        Returns:
+            torch.Tensor: Decoded representation of a sequence.
+        """
         # Adjust the input for the PyTorch format (batch_size as second dim)
         # TODO: replace with batch_first in the layer init
-        input = input.transpose(0, 1)
+        target = target.transpose(0, 1)
+        mask = mask.transpose(0, 1)
         # w/o mask due to currently have no paddings
-        output: torch.Tensor = self.decoder(input)
+        output: torch.Tensor = self.decoder(target, mask)
         return output.transpose(0, 1)
 
 
 class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
-    """Seq2Slate doesn't learn to point at position in the
-    vocabulary of fixed size. Instead it samples the items from
-    original sequence of variable length. Thus we wanna decoder
+    r"""
+    We use a bit different decoder output if vocabulary doesn't 
+    have fixed size. Model doesn't learn to point at position 
+    in the vocabulary of fixed size, instead it samples the items from
+    original sequence of variable length. Thus we want decoder
     outputs the attention weights instead of attention embedings.
     These weights would directly be used in the items sampling.
     """
@@ -113,36 +190,55 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
         self,
         target: torch.Tensor,
         memory: torch.Tensor,
-        target_mask: torch.Tensor,
+        tgt_mask: torch.Tensor,
         memory_mask: torch.Tensor
     ) -> torch.Tensor:
-        """Re-implement official PyTorch transformer decoder layer. 
+        r"""
+        Re-implement official PyTorch transformer decoder layer. 
         Normally, in the decoder layer we pass the cross-attention
-        results to the feedforward to get the weights of affection
-        afterward we normalize them within :math: `[0;1]`. We do this
-        'cause vocabulary size differs from target sequnce and we need
-        to get probability distribution over entire vocab. But this is 
-        not the case, it's sufficient to use self attention weights
-        :math:`softmax(QK^T/sqrt(d_model))`. For details see Figure 1 in the [2].
+        results to the feedforward to get the weights distributed over
+        overall vocabulary, afterward we normalize them within :math:`[0;1]`. 
+        However, some problem's definitions state that we don't have vocabulary
+        of fixed size, and it changes at each time step. But the goal remains
+        the same: we want to get probability distribution over vocabulary.
+        Technically, original decoder does it during attention process. So the
+        pointwise decoder output defines as follow:
+
+        .. math::
+
+            softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)
+
+        For some details see “`Attention Is All You Need <https://arxiv.org/abs/1706.03762>`_” 
+        and as example check “`Seq2Slate: Re-ranking and Slate Optimization with RNNs 
+        <https://arxiv.org/abs/1810.02019>`_”.
 
         Args:
             target (torch.Tensor): The sequence to the decoder layer.
-                shape: batch_size, target_seq_len, dim_model
-            memory (torch.Tensor): The sequence from the last layer.
-                shape: batch_size, source_seq_len, dim_model
-            target_mask (torch.Tensor): The mask for the target sequence.
-                shape: batch_size, target_seq_len, target_seq_len
+            memory (torch.Tensor): The sequence from the last encoder layer.
+            tgt_mask (torch.Tensor): The mask for the target sequence.
             memory_mask (torch.Tensor): The mask for the memory sequence.
-                shape: batch_size, target_seq_len, source_seq_len
+
+        Shape:
+            - target: :math:`(B, T, d_{model})`
+            - memory: :math:`(B, S, d_{model})`
+            - tgt_mask: :math:`(B, T, T)`
+            - memory_mask: :math:`(B, S, S)`
+            - output: :math:`(B, T, V)`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`T` - target sequence length.
+            - :math:`S` - source sequence length.
+            - :math:`V` - current vocabulary length.
+            - :math:`d_{model}` - dimension of learnable weights matrix.
 
         Returns:
             torch.Tensor: Attention weights are probabilities over symbols.
-                shape: batch_size, target_seq_len, num_ofcandidates
         """
         # Firstly, apply masked self attention to the target sequence
         # getting d_model attention embeddings.
         attn_values: torch.Tensor = self.self_attn(
-            target, target, target, attn_mask=target_mask
+            target, target, target, attn_mask=tgt_mask
         )[0]
         # Second, residuals connection [5] and layer normalization [4]
         target = target + self.dropout1(attn_values)
@@ -161,22 +257,35 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
 
 
 class PointwisePTDecoder(nn.Module):
-    """Transformer decoder implementation based on PyTorch officials
-    with slight modification dedicated to sample the target input
-    instead of overall vocabulary. For the details see [1] Figure 1 or [3].
+    r"""
+    Transformer decoder implementation based on PyTorch officials with slight 
+    modification dedicated to sample variable sequence instead of overall vocabulary.
+
+    Args:
+        dim_model (int): Dimension of learnable weights matrix :math:`W^{d_{model} \times d_*}`.
+        dim_feedforward (int): Dimension of hidden layers of feedforward network.
+        nheads (int): Number of heads in self attention mechanism.
+        nlayers (int): Number of stacked layers in the encoder.
+
+    .. important::
+
+        Feedforward network isn't in use for the last decoder layer. Therefore if decoder consists 
+        of the only layer (pointwise layer) this parameter is meaningless.
+        
+    Example::
+
+        >>> pointwise_decoder = PointwisePTDecoder(512, 2048, 8, 6)
+        >>> memory = torch.rand(10, 32, 512)
+        >>> target = torch.rand(10, 10, 512)
+        >>> out = pointwise_decoder(target, memory, None, None)
+        >>> out.shape
+        torch.Size([10, 10, 34])
+        
+        >>> torch.sum(out[0][0]) # Ensure that PDF is formed
+        tensor(1., grad_fn=<SumBackward0>)
     """
 
     def __init__(self, dim_model: int, dim_feedforward: int, nheads: int, nlayers: int) -> None:
-        """Initialize pointwise decoder.
-
-        Args:
-            dim_model (int): Dimension of learnable weights matrix :math:`W^{d_model x d_*}`.
-            dim_feedforward (int): Dimension of hidden layers of feedforward network.
-                NOTE: Feedforward network isn't in use for the last decoder layer. Therefore 
-                if decoder consists of the only layer (pointwise layer) this parameter is meaningless.
-            nheads (int): Number of heads in self attention mechanism.
-            nlayers (int): Number of stacked layers in the encoder.
-        """
         super().__init__()
         # Stacking size - 1 decoder layers
         default_transformer_decoders = [
@@ -210,27 +319,45 @@ class PointwisePTDecoder(nn.Module):
         target2source_mask: torch.Tensor,
         target2target_mask: torch.Tensor
     ) -> torch.Tensor:
-        """Pass target sequence along with encoder latent state
-        and produce the probability distribution over the target
-        sequence. For the details check the section 
-        "Pointer-Network Architecture for Ranking" in [1].
-
+        r"""
+        Pass target sequence along with encoder latent state and produce the probability 
+        distribution over the variable sequence. For the details check “`Pointer Networks 
+        <https://arxiv.org/abs/1506.03134>`_” and *Pointer-Network Architecture for 
+        Ranking* section in the“`Seq2Slate: Re-ranking and Slate Optimization with RNNs 
+        <https://arxiv.org/abs/1810.02019>`_”.
+        
         Args:
             target_embed (torch.Tensor): Embedded target sequence.
-                shape: batch_size, target_seq_len, dim_model
-            memory (torch.Tensor): Latent state of the encoder, i.e. :math:`{e_i}^n`.
-                shape: batch_size, source_seq_len, dim_model
+            memory (torch.Tensor): Latent state of the encoder.
             target2source_mask (torch.Tensor): Mask for the latent state.
-                shape: batch_size, target_seq_len, source_seq_len            
             target2target_mask (torch.Tensor): Mask for the target sequence.
-                shape: batch_size, target_seq_len, target_seq_len
+                
+        Shape:
+            - target_embed: :math:`(B, T, d_{model})`
+            - memory: :math:`(B, S, d_{model})`
+            - target2source_mask: :math:`(B, T, S)`
+            - target2target_mask: :math:`(B, T, T)`
+            - output: :math:`(B, T, V)`
+            
+        .. note::
+            
+            Currently, padding and start vectors are not learnable, therefore
+            treats them as zero vectors. 
+            
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`T` - target sequence length.
+            - :math:`S` - source sequence length.
+            - :math:`V` - current vocabulary length.
+            - :math:`d_{model}` - Dimension of learnable weights matrix.
+
         Returns:
-            torch.Tensor: Probability distribution over target sequence.
-                shape: batch_size, target_seq_len + 2, num_of_candidates
+            torch.Tensor: Probability distribution over rest of items.
         """
         batch_size, target_seq_len = target_embed.shape[:2]
 
         # Make suitable for the PyTorch
+        # TODO: replace with batch_first in the layer init
         target_embed = target_embed.transpose(0, 1)
         memory = memory.transpose(0, 1)
 
@@ -240,32 +367,33 @@ class PointwisePTDecoder(nn.Module):
             output = layer(
                 output,
                 memory,
-                target_mask=target2target_mask,
+                tgt_mask=target2target_mask,
                 memory_mask=target2source_mask
             )
         # We don't really want to sample the placeholders (padding/starting symbols)
-        # NOTE: The final sequence length is target_seq_len + 2
+        # NOTE: The final sequence length is num_of_candidates + 2
         zero_probas_for_placeholders = torch.zeros(
             batch_size, target_seq_len, 2, device=target_embed.device
         )
-        # Final probabilities pointing to the target sequence items
+        # Final probabilities pointing to the rest of the sequence items
         probas = torch.cat((zero_probas_for_placeholders, output), dim=2)
         return probas
 
 
 class VLPositionalEncoding(nn.Module):
-    """Special non-learnable positional encoding specified 
+    r"""
+    Special non-learnable positional encoding specified 
     for the handling variable length vocabulary. To do so
-    we fold the input positions to the lower dimension
-    afterward project them back to the original dimension.
+    we fold joint representation of featurewise sequence 
+    and item positions into original dimension afterward
+    project it back.
+    
+    Args:
+        dim_model (int): Dimension of learnable weights matrix 
+          :math:`W^{d_{model} \times d_*}`.
     """
 
     def __init__(self, dim_model: int) -> None:
-        """Constructor.
-
-        Args:
-            dim_model (int): Dimension of learnable weights matrix :math:`W^{d_model x d_*}`.
-        """
         super().__init__()
         self.pos_proj = nn.Linear(dim_model + 1, dim_model)
         self.activation = nn.ReLU()
@@ -275,11 +403,19 @@ class VLPositionalEncoding(nn.Module):
 
         Args:
             input (torch.Tensor): 
-                shape: batch_size, seq_len, dim_model
+                
+        Shape:
+            - input: :math:`(B, S, d_{model})`
+            - output: :math:`(B, S, d_{model})`
+            
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`S` - sequence length.
+            - :math:`d_{model}` - Dimension of learnable weights matrix.
+            
 
         Returns:
             torch.Tensor: Encoded sequence positions.
-                shape: batch_size, seq_len, dim_model
         """
         device = input.device
         batch_size, seq_len = input.shape[:2]

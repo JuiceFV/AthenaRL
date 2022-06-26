@@ -1,2 +1,1 @@
-from athena.nn.utils import transformer
-from athena.nn.utils import prune
+from athena.nn.utils import prune, transformer

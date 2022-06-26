@@ -1,20 +1,54 @@
 import torch
 
 def mask_by_index(input: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
-    """Mask out a tensor according to the given indices. Especially it's used 
-    to mask already placed items in purpose to set their selection probabilities
-    to 0, s.t. we never replace an item if it's placed already.
+    r"""
+    Mask out a tensor according to the given indices.
 
-    masked_input[i][j][k] = -inf if item already attends in the target seq; 
-    original value otherwise 
+    .. note:: 
+        
+        Masked items are set to :math:`-\infty` so that :func:`torch.nn.functional.softmax` 
+        application gives zero probability to pick it.
+        
+        .. code-block:: python 
+        
+            >>> masked_input[i][j][k] = float("-inf")
+            >>> probas = torch.softmax(masked_input, dim=2)
+            >>> probas[i][j][k]
+            0
 
+    .. warning::
+
+        Currently input tensor is considered as 3-D tensor, one represents sequential data 
+        so for the higher dimension tensors the behaviour is indeterministic. The masking,
+        apparently is featurewise (occurs for the last dimension).
+        
+    Example::
+
+        >>> input = torch.rand(3, 2, 3)
+        >>> mask = torch.full((3, 1), 1, dtype=torch.long)
+        >>> mask_by_index(input, mask)
+        tensor([[[0.4436,   -inf, 0.2505],
+                [0.0239, 0.7337, 0.2961]],
+
+                [[0.7820,   -inf, 0.1948],
+                [0.8769, 0.5264, 0.6567]],
+
+                [[0.0469,   -inf, 0.3706],
+                [0.4661, 0.5410, 0.9782]]])
+    
     Args:
         input (torch.Tensor): Input tensor which should be masked.
-            shape: batch_size, seq_len, num_of_candidates
         indices (torch.Tensor): Indices of input target seqence.
-            shape: batch_size, seq_len 
 
-
+    Shape:
+        - input: :math:`(B, S, I)`
+        - indices: :math:`(B, S)`
+        
+    Notations:
+        - :math:`B` - batch size.
+        - :math:`S` - sequence length.
+        - :math:`I` - item's vector dimensionality.
+    
     Returns:
         torch.Tensor: Masked input tensor.
     """

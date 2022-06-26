@@ -41,17 +41,67 @@ from athena.nn.utils.transformer import decoder_mask
 
 
 class Seq2SlateTransformerModel(nn.Module):
-    r"""The implementation of Seq2Slate model based on transformer encoder-decoder architecture. 
-    Model itself represents stack of encoders followed by stack of decoders. The last layer of 
-    decoder adapted s.t. it outputs probabilities over remaining candidates of source sequence. 
-    For example source sequence is :math:`[C1, C2, ..., Cn]` and :math:`[C2, Cn]` already choosen 
-    as the most probable items, thus decoder output is :math:`[P(C1), P(C3), ..., P(Cn-1)]` for 
-    the transformer :math:`P(C) = softmax(QK^T/sqrt(d_k))`.
+    r"""
+    The implementation of Seq2Slate model. Architecture is based on "`Seq2Slate: Re-ranking and Slate 
+    Optimization with RNNs <https://arxiv.org/abs/1810.02019>`_". Irwan Bello, Sayali Kulkarni, Sagar 
+    Jain, Craig Boutilier, Ed Chi, Elad Eban, Xiyang Luo, Alan Mackey, Ofer Meshi. 2019. This 
+    implementation is based on transformer encoder-decoder architecture instead of RNN proposed by 
+    authors. 
 
-    The model implements three slight different vatiations:
-    1. Auregressive decoder. We choose most probable candidate.
+    The generalized problem is to find a point in n-dimensional simplex which maximizes a metric.
+    This problem could be mutated s.t. it describes basic ranking problem, i.e. we look for such 
+    permutation :math:`\pi` which maximizes user engagement :math:`\mathcal{R}(\pi) = \arg \max{(\Delta^n)}`.
+    The obvious solution is to evaluate every vertex in the simplex. The obvious con of such 
+    method is its factorial computational cost. Thus, alongside with optimal solution we need
+    to obtain an optimal complexity (it strongly correlates with problem definition) which
+    one could be decreased down to :math:`O(n)` (see :func:`_greedy_decoding`).
+
+    The architecture defined as follow:
+
+    .. image:: ../_static/images/seq2slate_arch.png
+        :scale: 45 %
+
+    The model aplplies encoder and modified decoder blocks to an input sequence. Encoder takes input 
+    sequence :math:`\{x_i\}_{i=1}^n` and transforms it into embedded candidate items set representation
+    :math:`\{e_i\}_{i=1}^n`. Decoder at each time step combines query with encoder output and produce
+    probabilities over the rest items to include in the result sequence. For the detailes check `Pointer
+    Networks <https://arxiv.org/abs/1506.03134>`_ by Oriol Vinyals, Meire Fortunato, Navdeep Jaitly. 2015.
+
+    The model implements three slight different variations:
+
+    1. Auregressive decoder. Pick most probable candidate.
     2. Iterative softmax (Frechet sort). Decoder takes encoder scores and performs descending sort.
     3. No decoder and the output order is solely based on encoder scores.
+
+    Some modifications to the default transformer blocks were applied in purpose to handle variable length
+    of vocabulary (source sequence itself). Check :class:`athena.nn.PointwisePTDecoder` for the details.
+
+    Args:
+        latent_state_dim (int): The dimension of the current state.
+        candidate_dim (int): The dimension of a candidate.
+        nlayers (int): The number of stacked encoder and decoder layers.
+        nheads (int): The number of heads used in transformer.
+          Defines the enrichment of state representations.
+        dim_model (int): The dimension of model (:math:`d_{model}` in 
+          "`Attention Is All You Need <https://arxiv.org/abs/1706.03762>`_").
+        dim_feedforward (int): The dimension of hidden layers in the FF network.
+        max_source_seq_len (int): The maximum length of input sequences.
+        max_target_seq_len (int): The maximum length of output sequences.
+        output_arch (Seq2SlateOutputArch): The output architecture of the model.
+            Specifically, used to generalize the output for the different model variations.
+        temperature (float, optional): The temperature of decoder softmax. Defaults to ``1.0``.
+        latent_state_embed_dim (Optional[int], optional): Embedding dimension of the 
+            latent state. In case it's not specified ``latent_state_embed_dim = dim_model/2``. 
+            Defaults to ``None``.
+
+    .. warning::
+
+        ``temperature`` isn't in use, currently.
+
+    .. important::
+
+        Here's presented private methods which implicitly used in the encoder/decoder process.
+        The purpose of their exhibition is the detailed description of the model performance. 
     """
     __constants__ = [
         "latent_state_dim",
@@ -88,30 +138,6 @@ class Seq2SlateTransformerModel(nn.Module):
         temperature: float = 1.0,
         latent_state_embed_dim: Optional[int] = None
     ) -> None:
-        r"""Initialize the model and learnable parameters.
-
-        TODO: print_model_info
-
-        Args:
-            latent_state_dim (int): The dimension of the current state.
-            candidate_dim (int): The dimension of a candidate.
-            nlayers (int): The number of stacked encoder and decoder layers.
-            nheads (int): The number of heads used in transformer.
-                Defines the enrichment of state representations.
-            dim_model (int): The dimension of model (d_model in [2]).
-            dim_feedforward (int): The dimension of hidden layers in the FF network
-                used in the encoder and decoder last sublayers.
-            max_source_seq_len (int): The maximum length of input sequences.
-            max_target_seq_len (int): The maximum length of output sequences.
-            output_arch (Seq2SlateOutputArch): The output architecture of the model.
-                Specifically, used to generalize the output for the different model
-                variations.
-            temperature (float, optional): The temperature of the softmax used in 
-                decoder sampling. Defaults to 1.0.
-            latent_state_embed_dim (Optional[int], optional): Embedding dimension of the 
-                latent state. In case it's not specified latent_state_embed_dim = dim_model/2 
-                Defaults to None.
-        """
         super().__init__()
         self.latent_state_dim = latent_state_dim
         self.candidate_dim = candidate_dim
@@ -157,8 +183,8 @@ class Seq2SlateTransformerModel(nn.Module):
         self._initialize_learnable_params()
 
     def _initialize_learnable_params(self):
-        """Initialize parameters with Glorot / fan_avg.
-        https://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf
+        r"""
+        Initialize parameters with `Glorot / fan_avg <https://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf>`_.
         """
         for param in self.parameters():
             if param.dim() > 1:
@@ -175,32 +201,36 @@ class Seq2SlateTransformerModel(nn.Module):
         target_output_indcs: Optional[torch.Tensor] = None,
         greedy: Optional[bool] = None
     ) -> torch.Tensor:
-        r"""Pass the input through the model.
+        r"""Pass the input through the stack of encoders and ptr-decoders.
 
         Args:
-            mode (str): The mode one depicts how is model performing.
-                "rank": return ranked items and their generative probabilities.
-                "per_seq_log_probas": return generative log probabilities of given
-                target sequences (used for REINFORCE training)
-                "per_item_log_probas": return generative log probabilties of each
-                item in given target sequences (used in TEACHER FORCING training)
+            mode (str): The mode one depicts how is model performing. For the details see 
+              :class:`athena.core.dtypes.ranking.seq2slate.Seq2SlateMode`.
             latent_state (torch.Tensor): Current latent state of the model.
-                shape: batch_size, latent_state_dim
             source_seq (torch.Tensor): Source sequence.
-                shape: batch_size, source_seq_len, candidate_dim
-            target_seq_len (Optional[int], optional): The length of output s
-                equence to be decoded. Only used in rank mode. Defaults to None.
-            target_input_seq (Optional[torch.Tensor], optional): Target input sequence
-                one passed to the docder input. Used in TEACHER FORCING/REINFORCE mode. Defaults to None.
-                shape: batch_size, target_seq_len, candidate_dim
+            target_seq_len (Optional[int], optional): The length of output sequence to be decoded. 
+              Only used in RANK mode. Defaults to ``None``.
+            target_input_seq (Optional[torch.Tensor], optional): Target input sequence one passed 
+              to the docder input. Used in TEACHER FORCING or REINFORCE mode. Defaults to ``None``.
             target_input_indcs (Optional[torch.Tensor], optional): The indices of the given
-                target sequences. Used in TEACHER FORCING/REINFORCE mode. Defaults to None.
-                shape: batch_size, target_seq_len
+              target sequences. Used in TEACHER FORCING/REINFORCE mode. Defaults to ``None``.
             target_output_indcs (Optional[torch.Tensor], optional): The indicies over ones 
-                the final probabilities distribution will be performed. Defaults to None.
-                shape: batch_size, target_seq_len
-            greedy (Optional[bool], optional): The greedy sample. I.e. :math:`C: max{P(C)}`. 
-                Defaults to None.
+              the final probabilities distribution will be performed. Defaults to ``None``.
+            greedy (Optional[bool], optional): The greedy sample. Defaults to ``None``.
+
+        Shape:
+            - latent_state: :math:`(B, H)`
+            - source_seq: :math:`(B, S, C)`
+            - target_input_seq: :math:`(B, T, C)`
+            - target_input_indcs: :math:`(B, T)`
+            - target_output_indcs: :math:`(B, T)`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`H` - dimensionality of hidden state.
+            - :math:`S` - length of source sequence.
+            - :math:`C` - candidate (item) dimensionality.
+            - :math:`T` - length of target sequence.
 
         Raises:
             ValueError: If greedy hasn't been passed in RANKING mode.
@@ -260,23 +290,51 @@ class Seq2SlateTransformerModel(nn.Module):
         target_seq_len: int,
         greedy: bool
     ) -> Seq2SlateTransformerOutput:
-        """Decode and arange sequence according the given input. 
+        r"""
+        Decode and arange sequence according the given input. 
         The re-aranged sequence is just a sole permutation
         but we're wanna to get the "best" one so represent 
         resulted sequence as its occurance probability by taking
         product of all item's probabilities in the sequence.
 
+        .. math::
+
+            \Delta_i^n = p_{\pi}(\pi | \pi_{|\pi| - 1}, x) = 
+            \prod_{j=1}^{|\pi|}{p(\pi_j | \pi_{<j}, x)}
+
+        To get :math:`\max{(\Delta^n)}` we want to pick most probable individuals
+        :math:`p(\pi_j | \pi_{<j}, x)`. However, to catch higher order interactions
+        between the elements we employee three diferent methods.
+
+        .. important::
+
+            Such way of drawing most probable item minimizes local error (or Karcher
+            means of simplical manifold) but we want to minimize the global one
+            (`Fréchet mean <https://en.wikipedia.org/wiki/Fréchet_mean>`_). Here's the
+            implementation of these methods:
+
+            - :func:`_greedy_decoding`: Applies Fréchet sort over encoding scores.
+            - :func:`_encoder_decoding`: Use only encoder scores to arange a sequence.
+            - :func:`_autoregressive_decoding`: Pick an item in autoregressive way. 
+
         Args:
             latent_state (torch.Tensor): Current latent state.
-                shape: batch_size, latent_state_dim
             source_seq (torch.Tensor): Featurewise source sequence.
-                shape: batch_size, source_seq_len, candidate_dim
-            target_seq_len (int): Length of the given target sequence (it shrinks).
+            target_seq_len (int): Length of the given target sequence.
             greedy (bool): Greedily rank the items.
 
+        Shape:
+            - latent_state: :math:`(B, H)`
+            - source_seq: :math:`(B, S, C)`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`H` - dimensionality of hidden state.
+            - :math:`S` - length of source sequence.
+            - :math:`C` - candidate (item) dimensionality.
+
         Returns:
-            Seq2SlateTransformerOutput: Generalized model output specified 
-                for the ranking decoding.
+            Seq2SlateTransformerOutput: Generalized model output specified for the ranking decoding.
         """
         device = source_seq.device
         # Extract the dimensionality of source sequence
@@ -328,22 +386,38 @@ class Seq2SlateTransformerModel(nn.Module):
         memory: torch.Tensor,
         target_seq_len: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Arange items according to its encoder scores
+        r"""
+        Arange items according to its encoder scores
         i.e. self attention scores excluding high-order
         interactions between the items in sequence.
 
+        .. math::
+
+            \{e_i\}_{i=1}^m = E(\{x_i\}_{i=1}^{m})
+
+        Thus encoder exhibits most attractive items and blends the opposite
+        ones. However, we miss high-order interaction between the elements
+        by erasing the decoding step. In other words, we don't consider other 
+        permutations relying only on the original ordering, which isn't the 
+        "best" *a priori*.
+
         Args:
             memory (torch.Tensor): Encoder output depicts how important 
-                each item in the sequence at the current time step.
-                shape: batch_size, source_seq_len, dim_model
-            target_seq_len (int): Length of the target sequence (shrinked
-                source sequence).
+              each item in the sequence at the current time step.
+            target_seq_len (int): Length of the target sequence.
+
+        Shape:
+            - memory: :math:`(B, S, d_{model})`
+            - output: :math:`((B, T), (B, T))`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`S` - source sequence length.
+            - :math:`d_{model}` - Dimension of learnable weights matrix.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: Re-aranged permutation and 
-                generative item probabilitites in the permutation.
-                target_output_indcs shape: batch_size, target_seq_len
-                ordered_per_item_probas shape: batch_size, target_seq_len
+            generative item probabilitites in the permutation.
         """
         device = memory.device
         batch_size, source_seq_len = memory.shape[:2]
@@ -377,31 +451,40 @@ class Seq2SlateTransformerModel(nn.Module):
         target_seq_len: int,
         greedy: bool
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Autoregressive decoding implies an element selection at
-        each decoding step w/o considering remaining ones. I.e. 
+        r"""
+        Autoregressive decoding implies an element selection at
+        each decoding step without considering remaining ones. I.e. 
         at each step we pick most probable elment under assumption
-        that target sequence's elements are independent.
+        that target sequence's elements are independent. In constrast
+        :func:`_encoder_decoding` we produce probability distribution
+        over remaining items at each time step, by that encorporating
+        all permutations.
 
         Args:
             latent_state (torch.Tensor): Current latent state.
-                shape: batch_size, latent_state_dim
             memory (torch.Tensor): Encoder output depicts how important 
                 each item in the sequence at the current time step.
-                shape: batch_size, source_seq_len, dim_model
             featurewise_seq (torch.Tensor): The source sequence adjusted
-                for the learning purpose. I.e. added start and padding 
-                symbols' vectors.
-                shape: batch_size, source_seq_len + 2, candidate_dim
-            target_seq_len (int): Length of the target sequence (shrinked
-                source sequence).
-            greedy (bool): The way how to choose next candidate. Either
-                most probabble or multinomial sampling.
+                for the learning purpose. I.e. added start and padding symbols' vectors.
+            target_seq_len (int): Length of the target sequence.
+            greedy (bool): The way how to choose next candidate. :class:`athena.nn.SimplexSampler`.
+
+        Shape:
+            - latent_state: :math:`(B, H)`
+            - memory: :math:`(B, S, d_{model})`
+            - featurewise_seq: :math:`(B, S + 2, C)`
+            - output: :math:`((B, T), (B, T))`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`H` - dimensionality of hidden state.
+            - :math:`S` - length of source sequence.
+            - :math:`C` - candidate (item) dimensionality.
+            - :math:`d_{model}` - Dimension of learnable weights matrix.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: Re-aranged permutation and 
-                generative item probabilitites in the permutation.
-                target_output_indcs shape: batch_size, target_seq_len
-                ordered_per_item_probas shape: batch_size, target_seq_len
+            generative item probabilitites in the permutation.
         """
         device = featurewise_seq.device
         batch_size, num_of_candidates = featurewise_seq.shape[:2]
@@ -447,27 +530,36 @@ class Seq2SlateTransformerModel(nn.Module):
         featurewise_seq: torch.Tensor,
         target_seq_len: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Use one-step decoding (specifically first step) scores
-        to greedily rank items.
+        r"""
+        Use one-step decoding scores to greedily rank items. In
+        other words we emplyee decoder only once and produce
+        the distribution over symbols, considering only some
+        of permutations.
 
         Args:
             latent_state (torch.Tensor): Current latent state.
-                shape: batch_size, latent_state_dim
             memory (torch.Tensor): Encoder output depicts how important 
                 each item in the sequence at the current time step.
-                shape: batch_size, source_seq_len, dim_model
             featurewise_seq (torch.Tensor): The source sequence adjusted
-                for the learning purpose. I.e. added start and padding 
-                symbols' vectors.
-                shape: batch_size, source_seq_len + 2, candidate_dim
-            target_seq_len (int): Length of the target sequence (shrinked
-                source sequence).
+                for the learning purpose. I.e. added start and padding symbols' vectors.
+            target_seq_len (int): Length of the target sequence.
+
+        Shape:
+            - latent_state: :math:`(B, H)`
+            - memory: :math:`(B, S, d_{model})`
+            - featurewise_seq: :math:`(B, S + 2, C)`
+            - output: :math:`((B, T), (B, T))`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`H` - dimensionality of hidden state.
+            - :math:`S` - length of source sequence.
+            - :math:`C` - candidate (item) dimensionality.
+            - :math:`d_{model}` - Dimension of learnable weights matrix.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: Re-aranged permutation and 
-                generative item probabilitites in the permutation.
-                target_output_indcs shape: batch_size, target_seq_len
-                ordered_per_item_probas shape: batch_size, target_seq_len
+            generative item probabilitites in the permutation.
         """
         device = featurewise_seq.device
         batch_size, num_of_candidates = featurewise_seq.shape[:2]
@@ -508,25 +600,33 @@ class Seq2SlateTransformerModel(nn.Module):
         target_output_indcs: torch.Tensor,
         mode: str
     ) -> Seq2SlateTransformerOutput:
-        """For the REINFORCE training we're required for the log of 
-        generative probabilities
+        r"""
+        For the REINFORCE training we're required for the log of 
+        generative probabilities, but not the aranged sequence.
+        The ordering should maximize :math:`\mathcal{R}(\pi)`, one 
+        is commonly NDCG.
 
         Args:
             latent_state (torch.Tensor): Current latent state.
-                shape: batch_size, latent_state_dim
             source_seq (torch.Tensor): Featurewise source sequence.
-                shape: batch_size, source_seq_len, candidate_dim
-            target_input_seq (torch.Tensor): Target input sequence
-                one passed to the docder input. 
-                shape: batch_size, target_seq_len, candidate_dim
-            target_input_indcs (torch.Tensor): The indices of the given
-                target sequences.
-                shape: batch_size, target_seq_len
-            target_output_indcs (torch.Tensor): The indicies over ones 
-                the final probabilities distribution will be performed.
-                shape: batch_size, target_seq_len
-            mode (str): The way how to optimize the network. Either
-                calculate sequence or item distribution reward.
+            target_input_seq (torch.Tensor): Target input sequence one passed to the docder input. 
+            target_input_indcs (torch.Tensor): The indices of the given target sequences.
+            target_output_indcs (torch.Tensor): The indicies over ones the final probabilities distribution will be performed.
+            mode (str): The way how to optimize the network. Either calculate sequence or item distribution reward.
+
+        Shape:
+            - latent_state: :math:`(B, H)`
+            - source_seq: :math:`(B, S, C)`
+            - target_input_seq: :math:`(B, T, C)`
+            - target_input_indcs: :math:`(B, T)`
+            - target_output_indcs: :math:`(B, T)`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`H` - dimensionality of hidden state.
+            - :math:`S` - length of source sequence.
+            - :math:`C` - candidate (item) dimensionality.
+            - :math:`T` - length of target sequence.
 
         Raises:
             ValueError: In case if target sequence length is greater than source one.
@@ -545,7 +645,7 @@ class Seq2SlateTransformerModel(nn.Module):
                 f"{target_seq_len} > {source_seq_len}"
             )
         # Extract the probability distribution over items
-        # decoder_probs shape: batch_size, target_seq_len, candidate_size
+        # decoder_probs shape: batch_size, target_seq_len, num_of_candidates
         probas = self.decode(
             memory, latent_state, target_input_indcs, target_input_seq
         )
@@ -578,18 +678,26 @@ class Seq2SlateTransformerModel(nn.Module):
         source_seq: torch.Tensor,
         target_output_indcs: torch.Tensor
     ) -> Seq2SlateOutputArch:
-        """This forward method doesn't pass the sequence through
-        the decoder stack. Therefore, we don't really learn high-order
-        interference between the items on the slate.
+        """Similar to the :func:`_encoder_decoding`, except it's
+        not sorting according to the encoder scores.
 
         Args:
             latent_state (torch.Tensor): Current latent state.
-                shape: batch_size, latent_state_dim
             source_seq (torch.Tensor): Featurewise source sequence.
-                shape: batch_size, source_seq_len, candidate_dim
             target_output_indcs (torch.Tensor): The indicies over ones 
                 the final probabilities distribution will be performed.
-                shape: batch_size, target_seq_len
+
+        Shape:
+            - latent_state: :math:`(B, H)`
+            - source_seq: :math:`(B, S, C)`
+            - target_output_indcs: :math:`(B, T)`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`H` - dimensionality of hidden state.
+            - :math:`S` - length of source sequence.
+            - :math:`C` - candidate (item) dimensionality.
+            - :math:`T` - length of target sequence.
 
         Returns:
             Seq2SlateOutputArch: Generalized model output.
@@ -614,25 +722,35 @@ class Seq2SlateTransformerModel(nn.Module):
         )
 
     def encode(self, latent_state: torch.Tensor, source_seq: torch.Tensor) -> torch.Tensor:
-        """Seq2Slate encoding process.
-        The process consists of two steps:
+        r"""
+        Seq2Slate encoding process. The process consists of two steps:
 
         1. Combine current latent model state with new input by
         stacking one over another. S.t. resulted embedding 
         dimensionality will be equal to the d_model.
+
         2. Pass this embedding through the default transformer 
-        encoder layers. As result we get vectorized sequence representation.
+        encoder layers. As result we get vectorized sequence 
+        representation :math:`\{e_i\}_{i=1}^n`.
 
         Args:
             latent_state (torch.Tensor): Current latent state.
-                shape: batch_size, latent_state_dim
             source_seq (torch.Tensor): Featurewise source sequence.
-                shape: batch_size, source_seq_len, candidate_dim
+
+        Shape:
+            - latent_state: :math:`(B, H)`
+            - source_seq: :math:`(B, S, C)`
+            - output: :math:`(B, S, d_{model})`    
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`H` - dimensionality of hidden state.
+            - :math:`S` - length of source sequence.
+            - :math:`C` - candidate (item) dimensionality.
+            - :math:`d_{model}` - Dimension of learnable weights matrix.
 
         Returns:
-            torch.Tensor: Sequence represented as embeddings.
-                shape: batch_size, src_seq_len, dim_model
-
+            torch.Tensor: Sequence represented as embeddings (memory).
         """
         batch_size, max_source_seq_len = source_seq.shape[:2]
         # candidate_embed: batch_size, source_seq_len, dim_model/2
@@ -658,13 +776,17 @@ class Seq2SlateTransformerModel(nn.Module):
         target_input_indcs: torch.Tensor,
         target_input_seq: torch.Tensor
     ) -> torch.Tensor:
-        """Seq2Slate decoding process.
+        r"""
+        Seq2Slate decoding process.
         The process splits over two slightly different implementations.
-        First way is intended for the sampling purpose, we just embed 
+
+        1. First way is intended for the sampling purpose, we just embed 
         encoder scores into 1D vector and apply softmax to it, by one
         making scores distribution as PDF. This method is not adapted 
-        for the high-order inference learning in one decoder step but
-        eventually it should converge. The second option is autoregressive 
+        for the full high-order inference, learning in one decoder step 
+        but eventually it should converge. 
+
+        2. The second option is autoregressive 
         where each time step will change the probability distribution
         over remaining items due to the attention values are varying.
         For this option we use stack of decoder layers to combine 
@@ -674,26 +796,34 @@ class Seq2SlateTransformerModel(nn.Module):
         we evaluate high-order inference between the items taking
         already set ones into the account.
 
-        NOTE: Last decoder layer is modified s.t. it outputs the 
-        probabilities over target sequence (vocabulary)
+        .. note::
+            Last decoder layer is modified s.t. it outputs the 
+            probabilities over rest of source sequence (vocabulary).
 
 
         Args:
-            memory (torch.Tensor): Encoder output depicts how important 
-                each item in the sequence at the current time step.
-                shape: batch_size, source_seq_len, dim_model
+            memory (torch.Tensor): Encoder output depicts how important each item in the sequence at the current time step.
             latent_state (torch.Tensor): Current latent state.
-                shape: batch_size, latent_state_dim
-            target_input_indcs (torch.Tensor): The indices of the given
-                target sequences.
-                shape: batch_size, target_seq_len
-            target_input_seq (torch.Tensor): Target input sequence
-                one passed to the docder input. 
-                shape: batch_size, target_seq_len, dim_candidate
+            target_input_indcs (torch.Tensor): The indices of the given target sequences.
+            target_input_seq (torch.Tensor): Target input sequence one passed to the docder input. 
+
+        Shape:
+            - memory: :math:`(B, S, d_{model})`
+            - latent_state: :math:`(B, H)`
+            - target_input_indcs: :math:`(B, T)`
+            - target_input_seq: :math:`(B, T, d_{model})`
+            - output: :math:`(B, T, C)`    
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`H` - dimensionality of hidden state.
+            - :math:`S` - length of source sequence.
+            - :math:`C` - candidate (item) dimensionality.
+            - :math:`T` - length of target sequence.
+            - :math:`d_{model}` - Dimension of learnable weights matrix.
 
         Returns:
             torch.Tensor: Probabilities over symbols.
-                shape: batch_size, target_seq_len, num_of_candidates
         """
         batch_size, source_seq_len = memory.shape[:2]
         target_seq_len = target_input_indcs.shape[1]

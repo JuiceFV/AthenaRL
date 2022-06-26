@@ -44,8 +44,8 @@ class DiscriminatedUnion:
     r"""
     `Discriminated union <https://en.wikipedia.org/wiki/Tagged_union>`_ allows us get 
     a value that could take one of several different but fixed types. Assuming that 
-    subclasses are pydantic's dataclass. All the fields must be :attr:`Optional`
-    with :attr:`None` as default value. This doesn't support changing selected field/value.
+    subclasses are pydantic's dataclass. All the fields must be ``Optional``
+    with ``None`` as default value. This doesn't support changing selected field/value.
     """
 
     @property
@@ -76,7 +76,7 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
     It keeps track all subclasses and register them at one 
     union factory named roster (via :func:`register()` method). Once 
     a roster is registered with all subclasses it gets frozen s.t.
-    new member cannot be added. If :attr:`SKIP_FROZEN_REGISTRY_CHECK=1`
+    new member cannot be added. If ``SKIP_FROZEN_REGISTRY_CHECK=1``
     warning appears instead of exception when new member is attempted 
     to be added to the roster.
 
@@ -149,7 +149,7 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
 
     def register(cls: "RegistryMeta") -> Callable[[DiscriminatedUnion], DiscriminatedUnion]:
         """
-        Register all :attr:`cls` subclasses to the given roster.
+        Register all ``cls`` subclasses to the given roster.
 
         Args:
             cls (RegistryMeta): The tracker class. Generally, it 

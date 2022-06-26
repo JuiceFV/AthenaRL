@@ -4,34 +4,38 @@ from athena.version import __version__ as __version__
 
 
 def gather(data: torch.Tensor, indices_2d: torch.Tensor) -> torch.Tensor:
-    """Gather data alongs the second dim. Assume data is 3d with shape 
-    :attr:`(batch_size, dim1, dim2)`, and indices_2d's shape is 
-    :attr:`(batch_size, dim1)`. The output specified by::
+    r"""
+    Gather data alongs the second dim. The output specified by::
 
         output[i][j] = data[i][indices_2d[i][j]]
 
+    .. warning:: 
+
+        Assume data is 3d with shape :math:`(B, N, M)`, and ``indices_2d``'s 
+        shape is :math:`(B, N)`.
+    
     .. note::
 
-        This function does not require :attr:`data`, output, or :attr:`index_2d` 
+        This function does not require ``data``, output, or ``index_2d`` 
         having the same shape, which is mandated by :func:`torch.gather`.
 
     Args:
-        data (torch.Tensor): The data gather from.
-            ``shape: batch_size, dim1, dim2``
-        indices_2d (torch.Tensor): _description_
-            ``shape: batch_size, dim1``
+        data (torch.Tensor): The source data gather from.
+        indices_2d (torch.Tensor): The indices of elements to gather.
+    
+    Shape:
+        - data: :math:`(B, N, M)`
+        - indices_2d: :math:`(B, N)`
+        - output: :math:`(B, N)`
 
-    Raises:
-        RuntimeError: If data is not 3-dimensional.
+    Notations:
+        - :math:`B` - batch size.
+        - :math:`N` - first dimension.
+        - :math:`M` - second dimension.
 
     Returns:
-
-        torch.Tensor: 
-            The values of data at given indicies.
-            ``shape: batch_size, dim1``
+        torch.Tensor: The values of data at given indicies.
     """
-    if len(data.shape) != 3:
-        raise RuntimeError("We assume that data is 3-dimensional.")
     device = data.device
     batch_size, data_dim, indices_len = data.shape[0], data.shape[2], indices_2d.shape[1]
     output = data[

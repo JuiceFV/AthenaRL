@@ -60,9 +60,9 @@ def create_config_class(
     blocklist_types: List[type] = BLOCKLIST_TYPES,
 ) -> Callable[[type], object]:
     r"""
-    Create a decorator to create dataclass with the arguments of :attr:`func` as fields.
+    Create a decorator to create dataclass with the arguments of ``func`` as fields.
     Only annotated arguments are converted to fields. If the default value is mutable,
-    you must use :attr:`dataclass.field(default_factory=default_factory)` as default.
+    you must use ``dataclass.field(default_factory=default_factory)`` as default.
     In that case, the func has to be wrapped with :func:`resolve_defaults` below.
 
     .. note::
@@ -82,17 +82,17 @@ def create_config_class(
 
     Args:
         func (Callable): Function from one's parameters dataclass is created.
-        allowlist (Optional[List[str]], optional): Acceptable fields. Defaults to :attr:`None`.
-        blocklist (Optional[List[str]], optional): Prohibited fields. Defaults to :attr:`None`.
-        blocklist_types (List[Type], optional): Prohibited types. Defaults to :attr:`BLOCKLIST_TYPES`.
+        allowlist (Optional[List[str]], optional): Acceptable fields. Defaults to ``None``.
+        blocklist (Optional[List[str]], optional): Prohibited fields. Defaults to ``None``.
+        blocklist_types (List[Type], optional): Prohibited types. Defaults to ``BLOCKLIST_TYPES``.
 
     Raises:
         ValueError: If allowlist & blocklist are mutually exclusive.
-        TypeError: If a param is :attr:`Union` it has to be :attr:`Optional`.
+        TypeError: If a param is ``Union`` it has to be ``Optional``.
         TypeError: If param isn't python class.
 
     Returns:
-        Callable[[type], object]: Callable which makes class with fields from :attr:`func` params.
+        Callable[[type], object]: Callable which makes class with fields from ``func`` params.
     """
     parameters = signature(func).parameters
 
