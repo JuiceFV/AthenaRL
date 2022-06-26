@@ -8,6 +8,8 @@ node_modules/
 dist/
 configs/
 datasets/
+docs/build/
+docs/source/generated/
 
 # Compiled Java class files
 *.class
