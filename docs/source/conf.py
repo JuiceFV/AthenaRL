@@ -130,7 +130,7 @@ autodoc_docstring_signature = True
 
 bitbucket_user = 'Diginetica'
 bitbucket_repo = 'nastenka-solnishko'
-bitbucket_version = 'master'
+bitbucket_version = 'init'
 
 bitbucket_url = f'https://bitbucket.org/{bitbucket_user}/{bitbucket_repo}/'
 
@@ -159,9 +159,9 @@ def linkcode_resolve(domain, info):
     )
     
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3', None),
-    'numpy': ('https://numpy.org/doc/stable', None),
-    "torch": ("https://pytorch.org/docs/master/", None)
+    'python': ('https://docs.python.org/3/', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'torch': ("https://pytorch.org/docs/master/", None),
 }
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
