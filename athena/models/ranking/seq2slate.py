@@ -112,9 +112,7 @@ class Seq2SlateTransformerModel(nn.Module):
         "dim_feedforward",
         "max_source_seq_len",
         "max_target_seq_len",
-        "output_arch",
-        "latent_state_embedding",
-        "candidate_embedding",
+        "temperature",
         "_padding_symbol",
         "_decoder_start_symbol",
         "_rank_mode_val",
@@ -159,8 +157,8 @@ class Seq2SlateTransformerModel(nn.Module):
             self.candidate_dim, candidate_embed_dim
         )
 
-        self._padding_symbol = TransformerConstants.PADDING_SYMBOL
-        self._decoder_start_symbol = TransformerConstants.DECODER_START_SYMBOL
+        self._padding_symbol = 0
+        self._decoder_start_symbol = 1
 
         self._rank_mode_val = Seq2SlateMode.RANK_MODE.value
         self._per_item_log_prob_dist_mode_val = Seq2SlateMode.PER_ITEM_LOG_PROB_DIST_MODE.value
@@ -200,7 +198,7 @@ class Seq2SlateTransformerModel(nn.Module):
         target_input_indcs: Optional[torch.Tensor] = None,
         target_output_indcs: Optional[torch.Tensor] = None,
         greedy: Optional[bool] = None
-    ) -> torch.Tensor:
+    ) -> Seq2SlateTransformerOutput:
         r"""Pass the input through the stack of encoders and ptr-decoders.
 
         Args:
@@ -257,7 +255,7 @@ class Seq2SlateTransformerModel(nn.Module):
         elif mode in (
             self._per_item_log_prob_dist_mode_val, self._per_seq_log_prob_mode_val
         ):
-            if None in (target_input_seq, target_input_indcs, target_output_indcs):
+            if (target_input_seq is None) or (target_input_indcs is None) or (target_output_indcs is None):
                 raise ValueError(
                     "Expected target_input_seq, target_input_indcs, target_output_indcs; "
                     f"Given {target_input_seq, target_input_indcs, target_output_indcs}"
@@ -271,7 +269,7 @@ class Seq2SlateTransformerModel(nn.Module):
                 mode
             )
         elif mode == self._encoder_score_mode_val:
-            if target_input_indcs is None:
+            if target_output_indcs is None:
                 raise ValueError(
                     f"Expected target_input_indcs; Given {target_input_indcs}"
                 )
@@ -375,7 +373,7 @@ class Seq2SlateTransformerModel(nn.Module):
         return Seq2SlateTransformerOutput(
             ordered_per_item_probas=ordered_per_item_probas,
             ordered_per_seq_probas=ordered_per_seq_probas,
-            ordered_target_out_idcs=target_output_indcs,
+            ordered_target_out_indcs=target_output_indcs,
             per_item_log_probas=self._output_placeholder,
             per_seq_log_probas=self._output_placeholder,
             encoder_scores=self._output_placeholder
@@ -656,7 +654,7 @@ class Seq2SlateTransformerModel(nn.Module):
             return Seq2SlateTransformerOutput(
                 ordered_per_item_probas=None,
                 ordered_per_seq_probas=None,
-                ordered_target_out_idcs=None,
+                ordered_target_out_indcs=None,
                 per_item_log_probas=per_item_log_probas,
                 per_seq_log_probas=None,
                 encoder_scores=None
@@ -666,7 +664,7 @@ class Seq2SlateTransformerModel(nn.Module):
         return Seq2SlateTransformerOutput(
             ordered_per_item_probas=None,
             ordered_per_seq_probas=None,
-            ordered_target_out_idcs=None,
+            ordered_target_out_indcs=None,
             per_item_log_probas=None,
             per_seq_log_probas=per_seq_log_probas,
             encoder_scores=None
@@ -677,7 +675,7 @@ class Seq2SlateTransformerModel(nn.Module):
         latent_state: torch.Tensor,
         source_seq: torch.Tensor,
         target_output_indcs: torch.Tensor
-    ) -> Seq2SlateOutputArch:
+    ) -> Seq2SlateTransformerOutput:
         """Similar to the :func:`_encoder_decoding`, except it's
         not sorting according to the encoder scores.
 
@@ -700,7 +698,7 @@ class Seq2SlateTransformerModel(nn.Module):
             - :math:`T` - length of target sequence.
 
         Returns:
-            Seq2SlateOutputArch: Generalized model output.
+            Seq2SlateTransformerOutput: Generalized model output.
         """
         # encode source sequence into model memory state
         # shape: batch_size, source_seq_len, dim_model
@@ -715,7 +713,7 @@ class Seq2SlateTransformerModel(nn.Module):
         return Seq2SlateTransformerOutput(
             ordered_per_item_probas=None,
             ordered_per_seq_probas=None,
-            ordered_target_out_idcs=None,
+            ordered_target_out_indcs=None,
             per_item_log_probas=None,
             per_seq_log_probas=None,
             encoder_scores=encoder_scores
@@ -874,7 +872,7 @@ class Seq2SlateTransformerModel(nn.Module):
                 target_embed, memory, target2target_mask, target2source_mask
             )
         else:
-            NotImplementedError()
+            raise NotImplementedError()
         return probas
 
 
@@ -914,7 +912,7 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
                 greedy=greedy
             )
             return RankingOutput(
-                ordered_target_out_idcs=result.ordered_target_out_idcs,
+                ordered_target_out_indcs=result.ordered_target_out_indcs,
                 ordered_per_item_probas=result.ordered_per_item_probas,
                 ordered_per_seq_probas=result.ordered_per_seq_probas,
             )
