@@ -43,7 +43,7 @@ class TransformerEmbedding(Embedding):
         Returns:
             torch.Tensor: Scaled embeddings.
         """
-        output = super().forward(input) * math.sqrt(self.out_features)
+        output = self.linear(input) * math.sqrt(self.out_features)
         return output
 
 
@@ -251,6 +251,9 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
             memory,
             attn_mask=memory_mask
         )[1]
+        # TODO: Specify
+        if attn_weights is None:
+            raise RuntimeError("No output is returned.")
         # We don't really need to optimize the attention embedding values
         # Because we already have prob dist over vocab:)
         return attn_weights
