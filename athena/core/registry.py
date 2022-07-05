@@ -147,7 +147,7 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
                 )
         return super().__init__(name, bases, attrs)
 
-    def register(cls: "RegistryMeta") -> Callable[[DiscriminatedUnion], DiscriminatedUnion]:
+    def register(cls):
         """
         Register all ``cls`` subclasses to the given roster.
 
@@ -160,7 +160,7 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
                 Callable which modifies given roster by puting 
                 all subclasses into it.
         """
-        def wrapper(roster: DiscriminatedUnion) -> DiscriminatedUnion:
+        def wrapper(roster):
             cls.REGISTRY_FROZEN = True
 
             def make_roster_instance(
