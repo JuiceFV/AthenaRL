@@ -11,10 +11,10 @@ class Seq2SlateMode(Enum):
     """
     #: Returns ranked items and their generative probabilities.
     RANK_MODE = "rank"
-    #: Returns generative log probabilities of given target 
+    #: Returns generative log probabilities of given target
     #: sequences (used for REINFORCE training)
     PER_SEQ_LOG_PROB_MODE = "per_sequence_log_prob"
-    #: Returns generative log probabilties of each item in 
+    #: Returns generative log probabilties of each item in
     #: given sequences (used in TEACHER FORCING training)
     PER_ITEM_LOG_PROB_DIST_MODE = "per_item_log_prob_dist"
     #: Decoding occures only ones, thus not all permutations
@@ -48,7 +48,13 @@ class Seq2SlateTransformerOutput(NamedTuple):
     #: Generative probabilities of each permutation, computed as
     #: :math:`P(s) = \prod{P(i)}`
     ordered_per_seq_probas: Optional[torch.Tensor]
-    ordered_target_out_idcs: Optional[torch.Tensor]
+    ordered_target_out_indcs: Optional[torch.Tensor]
     per_item_log_probas: Optional[torch.Tensor]
     per_seq_log_probas: Optional[torch.Tensor]
     encoder_scores: Optional[torch.Tensor]
+
+
+class Seq2SlateVersion(Enum):
+    TEACHER_FORCING = "teacher_forcing"
+    REINFORCEMENT_LEARNING = "reinforcement_learning"
+    PAIRWISE_ATTENTION = "pairwise_attention"
