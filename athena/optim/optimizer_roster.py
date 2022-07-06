@@ -56,7 +56,7 @@ for opt_name in retrieve_torch_optimizers():
 @OptimizerConfig.register()
 class OptimizerRoster(DiscriminatedUnion):
     @classmethod
-    def default(cls, **kwargs) -> "OptimizerRoster":
+    def default(cls, **kwargs):
         """Specify optimizer factory w/ default optimizer.
         The default optimizer is the `Adam`.
 
