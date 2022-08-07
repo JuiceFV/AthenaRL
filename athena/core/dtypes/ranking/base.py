@@ -5,6 +5,7 @@ import torch
 from athena.core.dtypes import TensorDataClass, Feature
 from athena import gather
 from athena.nn.utils.transformer import subsequent_mask
+from athena.nn.arch.transformer import DECODER_START_SYMBOL
 
 
 @dataclass
@@ -32,48 +33,83 @@ class DocSeq(TensorDataClass):
 
 @dataclass
 class PreprocessedRankingInput(TensorDataClass):
-    # latent memory state, i.e. the transduction
-    # {x_i}^n -> {e_i}^n, where e_i = Encoder(x_i).
-    # In ranking seq2slate problem latent state
-    # depicts the items placed at 0 ... t-1 timestamp.
+    """The data format dedicated as input to a ranking
+    model. Tentatiely, the data must be preprocessed.
+
+    .. note:: 
+
+        Due to ranking algorithms are so diverse there are 
+        only two mandatory fields, while others are Optional.
+
+        1. Latent state. ML algorithms tends to optimise some
+        weight matrices so they require embedded state representation
+        to make assumption which item hould be placed next.
+
+        2. Featurewise sequence. It's obviously that we need input
+        sequence which should be ranked or re-ranked.
+
+    .. warning:: 
+
+        Note that in the ``target_*`` indices are shifted by two, 
+        due to the padding and start symbol.
+    """
+
+    #: The state one depicts rich representation
+    #: of a sequence. :math:`e = E(\{x_i\}_{i=0}^n)`.
     latent_state: Feature
 
-    # Sequence feature-wise representation {x_i}^n.
+    #: Sequence feature-wise representation :math:`\{x_i\}_{i=1}^n`.
     source_seq: Feature
 
-    # Mask for source sequences' items, especially
-    # required for the reward (i.e. RL mode) models.
-    # It defines the items set to which an item
-    # should pay attention to in purpose to increase
-    # reward metrics.
+    #: Mask for source sequences' items, especially
+    #: required for the reward models. Gives a hint
+    #: to which items we should pay attention.
     source2source_mask: Optional[torch.Tensor] = None
 
-    # Target sequence passed to the decoder.
-    # Used in weak supervised and teacher forcing learning.
+    #: Target sequence passed to the decoder.
+    #: Used in weak supervised and teacher forcing learning.
     target_input_seq: Optional[Feature] = None
 
-    # Target sequence after passing throughout the decoder
-    # and stacked fully-connected layers.
+    #: Target sequence after passing throughout the decoder
+    #: and stacked fully-connected layers.
     target_output_seq: Optional[Feature] = None
 
-    # Mask for target sequences' items, s.t.
-    # each item of a sequence has its own set of
-    # items to pay attention to.
+    #: Mask for target sequences' items, s.t.
+    #: each item of a sequence has its own set of
+    #: items to pay attention to.
     target2target_mask: Optional[torch.Tensor] = None
+
+    #: Reward calculated for a permutation.
+    #: Theoretically, reward could be calculated as follows:
+    #: :math:`P(s) = \prod_{i=1}^{|s|}{P(s_i)}`.
     slate_reward: Optional[torch.Tensor] = None
+
+    #: Reward calculated for an item at given position.
+    #: Theoretically, it's presented as :math:`P(s_i)`.
     position_reward: Optional[torch.Tensor] = None
 
-    # all indices will be shifted onto 2 due to padding items
-    # start/end symbol.
+    #: Source sequence arangement indices.
     source_input_indcs: Optional[torch.Tensor] = None
+
+    #: Target sequence indices passed to the decoder.
     target_input_indcs: Optional[torch.Tensor] = None
+
+    #: Re-aranged target sequence after decoder proceeds.
     target_output_indcs: Optional[torch.Tensor] = None
+
+    #: The probabilities of each item in the output sequence to be placed.
     target_output_probas: Optional[torch.Tensor] = None
 
-    # Ground-truth target sequence (for teacher forcing)
+    #: Ground-truth target input indices of sequence.
     gt_target_input_indcs: Optional[torch.Tensor] = None
+
+    #: Ground-truth target output indices of sequence.
     gt_target_output_indcs: Optional[torch.Tensor] = None
+
+    #: Ground-truth target input sequence representaation.
     gt_target_input_seq: Optional[Feature] = None
+
+    #: Ground-truth target input sequence representaation.
     gt_target_output_seq: Optional[Feature] = None
 
     @property
@@ -96,6 +132,45 @@ class PreprocessedRankingInput(TensorDataClass):
         slate_reward: Optional[torch.Tensor] = None,
         position_reward: Optional[torch.Tensor] = None
     ):
+        """Transform the preprocessed data from raw input, s.t. it may be used in the ranking problem.
+
+        Args:
+            state (torch.Tensor): Permutations at time :math:`t`.
+            candidates (torch.Tensor): Candidates for the next item to choose.
+            device (torch.device): Device where computations occur.
+            actions (Optional[torch.Tensor], optional): Target arangment "actions". Defaults to None.
+            gt_actions (Optional[torch.Tensor], optional): Ground truth actions. Defaults to None.
+            logged_propensities (Optional[torch.Tensor], optional): Propensities predicted by base model. Defaults to None.
+            slate_reward (Optional[torch.Tensor], optional): Total reward calculated for a permutation. Defaults to None.
+            position_reward (Optional[torch.Tensor], optional): Item-at-position reward. Defaults to None.
+
+        Raises:
+            ValueError: Wrong dimensionality of either ``state`` or ``candidates``.
+            ValueError: Wrong dimensionality of ``actions``.
+            ValueError: Wrong dimensionality of ``logged_propensities``.
+            ValueError: Wrong dimensionality of ``slate_reward``.
+            ValueError: If ``position_reward`` and ``actions`` dimensionalities don't match.
+
+        Shape:
+            - state: :math:`(B, E)`
+            - candidates: :math:`(B, N, C)`
+            - actions: :math:`(B, S)`
+            - gt_actions: :math:`(B, S)`
+            - logged_propensities: :math:`(B, 1)`
+            - slate_reward: :math:`(B, 1)`
+            - position_reward: :math:`(B, S)`
+
+        Notations:
+            - :math:`B` - batch size.
+            - :math:`E` - state vector dinmensionality.
+            - :math:`N` - number of candidates for a position.
+            - :math:`C` - a candidate dimensionality.
+            - :math:`S` - source sequence length.
+
+
+        Returns:
+            PreprocessedRankingInput: Input processed s.t. it could be used in ranking models.
+        """
         if len(state.shape) != 2 or len(candidates.shape) != 3:
             raise ValueError(
                 f"Expected state be 2-dimensional; Got {len(state.shape)}. "
@@ -107,12 +182,12 @@ class PreprocessedRankingInput(TensorDataClass):
         if actions is not None:
             if len(actions.shape) != 2:
                 raise ValueError(
-                    f"Expected state be 2-dimensional; Got {len(state.shape)}. "
+                    f"Expected state be 2-dimensional; Got {len(actions.shape)}. "
                 )
             actions = actions.to(device)
 
         if logged_propensities is not None:
-            if len(logged_propensities.shape) != 2 or logged_propensities[1] != 1:
+            if len(logged_propensities.shape) != 2 or logged_propensities.shape[1] != 1:
                 raise ValueError(
                     f"Expected logged_propensities be 2-dimensional; Got {len(logged_propensities.shape)}. "
                     f"Expected logged_propensities[1] be 1-dimensional; Got {logged_propensities.shape[1]}."
@@ -147,15 +222,16 @@ class PreprocessedRankingInput(TensorDataClass):
             if actions is not None:
                 output_size = actions.shape[1]
 
-                shifted_candidates = torch.cat(torch.zeros(batch_size, 2, candidate_dim, device=device), dim=1)
+                shifted_candidates = torch.cat(
+                    (torch.zeros(batch_size, 2, candidate_dim, device=device), candidates), dim=1
+                )
 
                 target_output_indcs = actions + 2
-                # TODO: 1 -> decoder_start_symbol
-                target_input_indcs = torch.full((batch_size, output_size), 1, device=device)
+                target_input_indcs = torch.full((batch_size, output_size), DECODER_START_SYMBOL, device=device)
                 target_input_indcs[:, 1:] = target_output_indcs[:, :-1]
                 target_output_seq = gather(shifted_candidates, target_output_indcs)
                 target_input_seq = torch.zeros(batch_size, output_size, candidate_dim, device=device)
-                target_input_seq[:, 1:] = target_input_seq[:, :-1]
+                target_input_seq[:, 1:] = target_output_seq[:, :-1]
                 target2target_mask = subsequent_mask(output_size, device)
 
             return target_input_indcs, target_output_indcs, target_input_seq, target_output_seq, target2target_mask
@@ -216,7 +292,7 @@ class PreprocessedRankingInput(TensorDataClass):
         **kwargs
     ):
         def annotation_checking(input: torch.Tensor) -> None:
-            if input is not None or not isinstance(input, torch.Tensor):
+            if input is not None and not isinstance(input, torch.Tensor):
                 raise TypeError(f"Expected {Optional[torch.Tensor]}; but got {type(input)}")
 
         annotation_checking(state)
