@@ -29,8 +29,8 @@ from athena.core.config import param_hash
 from athena.core.dataclasses import dataclass
 from athena.core.dtypes import (PreprocessedRankingInput, RankingOutput,
                                 Seq2SlateMode, Seq2SlateOutputArch,
-                                Seq2SlateTransformerOutput,
-                                TransformerConstants)
+                                Seq2SlateTransformerOutput)
+from athena.nn.arch.transformer import DECODER_START_SYMBOL, PADDING_SYMBOL
 from athena.core.logger import LoggerMixin
 from athena.models.base import BaseModel
 from athena.nn.arch import (PointwisePTDecoder, PTEncoder, SimplexSampler,
@@ -156,9 +156,8 @@ class Seq2SlateTransformerModel(nn.Module):
         self.candidate_embedding = TransformerEmbedding(
             self.candidate_dim, candidate_embed_dim
         )
-
-        self._padding_symbol = 0
-        self._decoder_start_symbol = 1
+        self._padding_symbol = PADDING_SYMBOL
+        self._decoder_start_symbol = DECODER_START_SYMBOL
 
         self._rank_mode_val = Seq2SlateMode.RANK_MODE.value
         self._per_item_log_prob_dist_mode_val = Seq2SlateMode.PER_ITEM_LOG_PROB_DIST_MODE.value
@@ -308,8 +307,7 @@ class Seq2SlateTransformerModel(nn.Module):
 
             Such way of drawing most probable item minimizes local error (or Karcher
             means of simplical manifold) but we want to minimize the global one
-            (`Fréchet mean <https://en.wikipedia.org/wiki/Fréchet_mean>`_). Here's the
-            implementation of these methods:
+            (`Fréchet mean`_). Here's the implementation of these methods:
 
             - :func:`_greedy_decoding`: Applies Fréchet sort over encoding scores.
             - :func:`_encoder_decoding`: Use only encoder scores to arange a sequence.
@@ -333,6 +331,9 @@ class Seq2SlateTransformerModel(nn.Module):
 
         Returns:
             Seq2SlateTransformerOutput: Generalized model output specified for the ranking decoding.
+
+        .. _Fréchet mean:
+            https://en.wikipedia.org/wiki/Fréchet_mean
         """
         device = source_seq.device
         # Extract the dimensionality of source sequence
@@ -508,10 +509,10 @@ class Seq2SlateTransformerModel(nn.Module):
             # Choose most probable (or sampling) item at each step.
             # Obviously it could vary step to step
             # candidate shape: batch_size, 1
-            # candidate_draw_prob shape: batch_size, nom_of_candidates
-            candidate, candidate_draw_prob = self.gc(probas, greedy)
+            # probas_dist shape: batch_size, nom_of_candidates
+            candidate, probas_dist = self.gc(probas, greedy)
             # Store generative probability for the current step (distribution)
-            ordered_per_item_probas[:, step, :] = candidate_draw_prob
+            ordered_per_item_probas[:, step, :] = probas_dist
             target_input_indcs = torch.cat(
                 [target_input_indcs, candidate], dim=1
             )
@@ -869,7 +870,7 @@ class Seq2SlateTransformerModel(nn.Module):
             )
             # Apply decoder layers
             probas = self.decoder(
-                target_embed, memory, target2target_mask, target2source_mask
+                target_embed, memory, target2source_mask, target2target_mask
             )
         else:
             raise NotImplementedError()
@@ -895,6 +896,15 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
 
     def _build_model(self) -> Seq2SlateTransformerModel:
         return None
+
+    def input_prototype(self) -> PreprocessedRankingInput:
+        return PreprocessedRankingInput.from_tensors(
+            state=torch.randn(1, self.latent_state_dim),
+            source_seq=torch.randn(1, self.max_source_seq_len, self.candidate_dim),
+            target_input_seq=torch.randn(1, self.max_target_seq_len, self.candidate_dim),
+            target_output_seq=torch.randn(1, self.max_target_seq_len, self.candidate_dim),
+            slate_reward=torch.rand(1)
+        )
 
     def forward(
         self,
