@@ -32,7 +32,7 @@ def retrieve_torch_optimizers() -> List[str]:
 # Here we create optimizer dataclass from its name.
 # For those ones cannot be inferred we take predefined
 # dataclass w/ given params
-opt_classes = {}
+opt_classes: Dict[str, torch.optim.Optimizer] = {}
 for opt_name in retrieve_torch_optimizers():
     if hasattr(cbi, opt_name):
         subclass = getattr(cbi, opt_name)

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 import athena.optim.uninferrable_schedulers as cbi
 import torch
@@ -17,7 +17,7 @@ def retrieve_torch_lr_schedulers() -> List[str]:
     ]
 
 
-lr_scheduler_classes = {}
+lr_scheduler_classes: Dict[str, torch.optim.lr_scheduler._LRScheduler] = {}
 for lr_scheduler_name in retrieve_torch_lr_schedulers():
     if hasattr(cbi, lr_scheduler_name):
         subclass = getattr(cbi, lr_scheduler_name)
