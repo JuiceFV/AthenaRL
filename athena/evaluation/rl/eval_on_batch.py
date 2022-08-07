@@ -1,8 +1,9 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import athena.core.dtypes as adt
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from athena.models import Seq2SlateTransformerNetwork
 
 
@@ -83,3 +84,24 @@ class EvaluationOnBatch(adt.TensorDataClass):
             logged_action_rewards=logged_action_rewards,
             logged_propensities=logged_propensities
         )
+
+    def append(self, eob: "EvaluationOnBatch") -> "EvaluationOnBatch":
+        new_eob = {}
+
+        for field in fields(EvaluationOnBatch):
+            original_tensor = getattr(self, field.name)
+            addable_tensor = getattr(eob, field.name)
+            if int(original_tensor is None) + int(addable_tensor is None) == 1:
+                raise AttributeError(
+                    f"Tried to append when a tensor existed in one training page but not the other: {field.name}"
+                )
+            if addable_tensor is not None:
+                if isinstance(original_tensor, torch.Tensor):
+                    new_eob[field.name] = torch.cat((original_tensor, addable_tensor), dim=0)
+                elif isinstance(original_tensor, np.ndarray):
+                    new_eob[field.name] = np.concatenate((original_tensor, addable_tensor), axis=0)
+                else:
+                    raise TypeError("Invalid type in batch data.")
+            else:
+                new_eob[field.name] = None
+        return EvaluationOnBatch(**new_eob)
