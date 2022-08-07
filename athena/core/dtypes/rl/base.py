@@ -2,11 +2,12 @@ from dataclasses import dataclass
 from enum import Enum
 
 from athena.core.base_dclass import BaseDataClass
+from athena.core.enum_meta import AthenaEnumMeta
 
 
-class IPSBlurMethod(Enum):
+class IPSBlurMethod(Enum, metaclass=AthenaEnumMeta):
     UNIVERSAL = "universal"
-    CR = "cr"
+    AGGRESSIVE = "aggressive"
 
 
 @dataclass(frozen=True)
