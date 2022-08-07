@@ -10,6 +10,7 @@ from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from typing_extensions import final
 from athena.core.tensorboard import SummaryWriterContext
+from athena.report.base import ReporterBase
 
 
 class AthenaLightening(pl.LightningModule, LoggerMixin):
@@ -28,16 +29,14 @@ class AthenaLightening(pl.LightningModule, LoggerMixin):
         self.batches_processed_this_epoch = 0
         self.all_batches_processed = 0
 
-    def set_reporter(self, reporter: Optional[Any]) -> "AthenaLightening":
-        # TODO: reporter should be of some specific base class
+    def set_reporter(self, reporter: Optional[ReporterBase]) -> "AthenaLightening":
         if reporter is None:
             reporter = DummyExperiment()
         self._reporter = reporter
         return self
 
     @property
-    def reporter(self) -> DummyExperiment:
-        # TODO: reporter should be of some specific base class
+    def reporter(self) -> Union[ReporterBase, DummyExperiment]:
         return self._reporter
 
     def set_clean_stop(self, clean_stop: bool) -> None:
