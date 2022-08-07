@@ -1,7 +1,5 @@
 import contextlib
-from ctypes import Union
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -37,11 +35,10 @@ class SummaryWriterContextMeta(type, LoggerMixin):
                 raise
         return call
 
-@dataclass
 class SummaryWriterContext(metaclass=SummaryWriterContextMeta):
-    _writer_stacks: List[SummaryWriter] = list()
+    _writer_stacks: List[SummaryWriter] = []
     _global_step = 0
-    _custom_scalars: Dict[str, Any] = dict()
+    _custom_scalars: Dict[str, Any] = {}
     
     @classmethod
     def _reset_globals(cls) -> None:
