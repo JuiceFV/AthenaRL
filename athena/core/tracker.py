@@ -1,5 +1,4 @@
 import functools
-from re import L
 from typing import Any, Callable, Dict, List, Optional, Union
 
 import torch
@@ -21,7 +20,7 @@ class Tracker:
         pass
 
 
-class Aggregator:
+class Aggregator(LoggerMixin):
     def __init__(self, field: str) -> None:
         super().__init__()
         self.field = field
