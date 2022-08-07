@@ -2,9 +2,10 @@ import torch
 
 from enum import Enum
 from typing import NamedTuple, Optional
+from athena.core.enum_meta import AthenaEnumMeta
 
 
-class Seq2SlateMode(Enum):
+class Seq2SlateMode(Enum, metaclass=AthenaEnumMeta):
     r"""
     The mode in which :class:`athena.models.ranking.seq2slate.Seq2SlateTransformerModel` 
     performs.
@@ -24,7 +25,7 @@ class Seq2SlateMode(Enum):
     ENCODER_SCORE_MODE = "encoder_score_mode"
 
 
-class Seq2SlateOutputArch(Enum):
+class Seq2SlateOutputArch(Enum, metaclass=AthenaEnumMeta):
     r"""
     The variation of Seq2Slate model.
     """
@@ -54,7 +55,15 @@ class Seq2SlateTransformerOutput(NamedTuple):
     encoder_scores: Optional[torch.Tensor]
 
 
-class Seq2SlateVersion(Enum):
+class Seq2SlateVersion(Enum, metaclass=AthenaEnumMeta):
+    r"""
+    Version of the seq2slate model.
+    """
+    #: Teacher-forcing fashion. Ground truth required.
     TEACHER_FORCING = "teacher_forcing"
+    
+    #: RL fashion. 
     REINFORCEMENT_LEARNING = "reinforcement_learning"
+    
+    #: Pairwise fashion. Without decoder.
     PAIRWISE_ATTENTION = "pairwise_attention"
