@@ -42,5 +42,5 @@ def ips_blur(importance_weights: torch.Tensor, ips_blur: Optional[adt.IPSBlur]) 
         return importance_weights.clone()
     if ips_blur.blur_method == adt.IPSBlurMethod.UNIVERSAL:
         return torch.clamp(importance_weights, 0, ips_blur.blur_max)
-    elif ips_blur.blur_method == adt.IPSBlurMethod.CR:
+    elif ips_blur.blur_method == adt.IPSBlurMethod.AGGRESSIVE:
         return torch.where(importance_weights > ips_blur.blur_max, torch.zeros_like(importance_weights), importance_weights)
