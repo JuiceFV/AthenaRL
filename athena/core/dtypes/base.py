@@ -1,9 +1,9 @@
-from enum import Enum
-from typing import Any, Optional, Union
 from dataclasses import dataclass
+from typing import Any, Optional, Union
 
 import torch
 from athena.core.base_dclass import BaseDataClass
+from athena.core.enum_meta import AthenaEnumMeta, Enum
 from athena.core.logger import LoggerMixin
 
 
@@ -126,6 +126,22 @@ class Feature(TensorDataClass):
     repr: torch.Tensor
 
 
-class TransformerConstants(Enum):
-    PADDING_SYMBOL: int = 0
-    DECODER_START_SYMBOL: int = 1
+@dataclass
+class SamplingOutput(TensorDataClass):
+    vertex: torch.Tensor
+    probas_dist: Optional[torch.Tensor] = None
+
+
+class Ftype(str, Enum, metaclass=AthenaEnumMeta):
+    """_summary_
+
+    TODO:
+        - Add action types. Descrete - CTR; Continuous - Time spent;
+    """
+    BINARY = "binary"
+    CONTINUOUS = "continuous"
+    PROBABILITY = "probability"
+    BOXCOX = "boxcox"
+    ENUM = "enum"
+    QUANTILE = "quantile"
+    DO_NOT_PREPROCESS = "do_not_preprocess"
