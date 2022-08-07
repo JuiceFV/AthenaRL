@@ -9,7 +9,7 @@ from athena.core.parameters import NormalizationParams
 from athena.preprocessing.identify_types import identify_type, DEFAULT_MAX_UNIQUE_ENUM
 
 BOXCOX_MARGIN = 1e-4
-MISSING_VALUE = -1337.1337
+MISSING_VALUE = -228.228
 BOXCOX_MAX_STDEV = 1e8
 DEFAULT_MAX_QUANTILE_SIZE = 20
 DEFAULT_QUANTILE_K2_THRESHOLD = 1000.0
