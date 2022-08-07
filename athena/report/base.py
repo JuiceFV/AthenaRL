@@ -1,9 +1,12 @@
+import abc
 from typing import Dict, List
 
-import abc
 import torch
 from athena.core.logger import LoggerMixin
-from athena.core.monitors import CompositeMonitor, IntervalAggMonitor, ValueListMonitor, OnEpochEndMonitor
+from athena.core.monitors import CompositeMonitor
+from athena.core.monitors import IntervalAggMonitor
+from athena.core.monitors import OnEpochEndMonitor
+from athena.core.monitors import ValueListMonitor
 from athena.core.tracker import TrackableMixin, Tracker
 
 
@@ -29,7 +32,7 @@ class ReporterBase(CompositeMonitor, LoggerMixin):
 
     def log(self, **kwargs) -> None:
         self._reporter_trackable.notify_trackers(**kwargs)
-        
+
     def __getattr__(self, field: str) -> Tracker:
         val = self._value_list_monitors.get(field, None)
         if val is None:
@@ -37,7 +40,7 @@ class ReporterBase(CompositeMonitor, LoggerMixin):
         if val is None:
             raise AttributeError(f"No such field {field}.")
         return val
-    
+
     @abc.abstractmethod
     def training_report(self):
         pass
