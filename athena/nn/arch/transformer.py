@@ -6,6 +6,10 @@ import torch.nn.modules.transformer as transformer
 from athena.nn.arch import Embedding
 
 
+PADDING_SYMBOL = 0
+DECODER_START_SYMBOL = 1
+
+
 class TransformerEmbedding(Embedding):
     r"""
     The copy of :class:`Embedding` except the projection process.
@@ -13,7 +17,7 @@ class TransformerEmbedding(Embedding):
     share the same weight matrix we scale the weights by the factor 
     :math:`\sqrt{d_{model}}`. See details in “`Attention Is All You Need
     <https://arxiv.org/abs/1706.03762>`_” section 3.4.
-    
+
     Example::
 
         >>> embed = TransformerEmbedding(136, 512)
@@ -61,7 +65,7 @@ class PTEncoder(nn.Module):
     .. important:: 
 
         Note that ``dropout`` is set to 0.
-        
+
     Example::
 
         >>> encoder = PTEncoder(512, 2048, 8, 6)
@@ -71,14 +75,14 @@ class PTEncoder(nn.Module):
 
     def __init__(self, dim_model: int, dim_feedforward: int, nheads: int, nlayers: int) -> None:
         super().__init__()
-        self.layer = nn.TransformerEncoderLayer(
+        layer = nn.TransformerEncoderLayer(
             d_model=dim_model,
             dim_feedforward=dim_feedforward,
             nhead=nheads,
             dropout=0.0
         )
         self.encoder = nn.TransformerEncoder(
-            self.layer, num_layers=nlayers
+            layer, num_layers=nlayers
         )
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
@@ -122,7 +126,7 @@ class PTDecoder(nn.Module):
     .. important:: 
 
         Note that ``dropout`` is set to 0.
-        
+
     Example::
 
         >>> decoder = PTDecoder(512, 2048, 8, 6)
@@ -274,7 +278,7 @@ class PointwisePTDecoder(nn.Module):
 
         Feedforward network isn't in use for the last decoder layer. Therefore if decoder consists 
         of the only layer (pointwise layer) this parameter is meaningless.
-        
+
     Example::
 
         >>> pointwise_decoder = PointwisePTDecoder(512, 2048, 8, 6)
@@ -283,7 +287,7 @@ class PointwisePTDecoder(nn.Module):
         >>> out = pointwise_decoder(target, memory, None, None)
         >>> out.shape
         torch.Size([10, 10, 34])
-        
+
         >>> torch.sum(out[0][0]) # Ensure that PDF is formed
         tensor(1., grad_fn=<SumBackward0>)
     """
@@ -328,25 +332,25 @@ class PointwisePTDecoder(nn.Module):
         <https://arxiv.org/abs/1506.03134>`_” and *Pointer-Network Architecture for 
         Ranking* section in the“`Seq2Slate: Re-ranking and Slate Optimization with RNNs 
         <https://arxiv.org/abs/1810.02019>`_”.
-        
+
         Args:
             target_embed (torch.Tensor): Embedded target sequence.
             memory (torch.Tensor): Latent state of the encoder.
             target2source_mask (torch.Tensor): Mask for the latent state.
             target2target_mask (torch.Tensor): Mask for the target sequence.
-                
+
         Shape:
             - target_embed: :math:`(B, T, d_{model})`
             - memory: :math:`(B, S, d_{model})`
             - target2source_mask: :math:`(B, T, S)`
             - target2target_mask: :math:`(B, T, T)`
             - output: :math:`(B, T, V)`
-            
+
         .. note::
-            
+
             Currently, padding and start vectors are not learnable, therefore
             treats them as zero vectors. 
-            
+
         Notations:
             - :math:`B` - batch size.
             - :math:`T` - target sequence length.
@@ -390,7 +394,7 @@ class VLPositionalEncoding(nn.Module):
     we fold joint representation of featurewise sequence 
     and item positions into original dimension afterward
     project it back.
-    
+
     Args:
         dim_model (int): Dimension of learnable weights matrix 
           :math:`W^{d_{model} \times d_*}`.
@@ -406,16 +410,16 @@ class VLPositionalEncoding(nn.Module):
 
         Args:
             input (torch.Tensor): 
-                
+
         Shape:
             - input: :math:`(B, S, d_{model})`
             - output: :math:`(B, S, d_{model})`
-            
+
         Notations:
             - :math:`B` - batch size.
             - :math:`S` - sequence length.
             - :math:`d_{model}` - Dimension of learnable weights matrix.
-            
+
 
         Returns:
             torch.Tensor: Encoded sequence positions.
