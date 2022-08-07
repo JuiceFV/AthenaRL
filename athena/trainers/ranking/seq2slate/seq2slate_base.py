@@ -9,7 +9,8 @@ from athena.core.dataclasses import field
 from athena.trainers import AthenaLightening, STEP_OUTPUT
 from athena.models import Seq2SlateTransformerNetwork
 from athena.optim import OptimizerRoster
-from athena.core.parameters import Seq2SlateParameters
+from athena.core.parameters import Seq2SlateParams
+from athena.evaluation.rl.eval_on_batch import EvaluationOnBatch
 from athena.nn.rl.variance_reduction import BaselineNetwork, ips_blur, ips_ratio
 
 
@@ -17,7 +18,7 @@ class Seq2SlateTrainer(AthenaLightening):
     def __init__(
         self,
         reinforce_network: Seq2SlateTransformerNetwork,
-        params: Seq2SlateParameters = field(default_factory=Seq2SlateParameters),
+        params: Seq2SlateParams = field(default_factory=Seq2SlateParams),
         baseline_network: Optional[BaselineNetwork] = None,
         baseline_warmup_batches: int = 0,
         policy_optimizer: OptimizerRoster = field(default_factory=OptimizerRoster.default),
@@ -180,3 +181,26 @@ class Seq2SlateTrainer(AthenaLightening):
 
         if not self.cpe:
             return None
+
+        eob_greedy = EvaluationOnBatch.from_seq2slate(reinforce, self.propensity_network, batch, greedy_eval=True)
+        eob_nongreedy = EvaluationOnBatch.from_seq2slate(reinforce, self.propensity_network, batch, greedy_eval=False)
+
+        return eob_greedy, eob_nongreedy
+
+    def validation_epoch_end(self, outputs: Optional[List[Tuple[EvaluationOnBatch, EvaluationOnBatch]]]) -> None:
+        if self.cpe:
+            if outputs is None:
+                raise RuntimeError("If counterfactual evaluation policy is on, batches' evaluators are expected.")
+            
+            eobs_greedy, eobs_nongreedy = None, None
+            for eob_greedy, eob_nongreedy in outputs:
+                if eobs_greedy is None and eobs_nongreedy is None:
+                    eobs_greedy = eob_greedy
+                    eobs_nongreedy = eob_nongreedy
+                else:
+                    eobs_greedy.append(eob_greedy)
+                    eobs_nongreedy.append(eob_nongreedy)
+            self.reporter.log(
+                eobs_greedy=eobs_greedy,
+                eobs_nongreedy=eob_nongreedy
+            )
