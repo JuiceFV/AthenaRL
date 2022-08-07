@@ -31,7 +31,9 @@ Ranking
     :nosignatures:
     :template: classtemplate.rst
 
+    PreprocessedRankingInput
     ~seq2slate.Seq2SlateTransformerOutput
     ~seq2slate.Seq2SlateOutputArch
     ~seq2slate.Seq2SlateMode
+    ~seq2slate.Seq2SlateVersion
 
