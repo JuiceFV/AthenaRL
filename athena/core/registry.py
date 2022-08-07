@@ -40,36 +40,6 @@ class DiscriminatedUnion:
         return getattr(self, selected_fields[0])
 
 
-class DiscriminatedUnion:
-    r"""
-    `Discriminated union <https://en.wikipedia.org/wiki/Tagged_union>`_ allows us get 
-    a value that could take one of several different but fixed types. Assuming that 
-    subclasses are pydantic's dataclass. All the fields must be ``Optional``
-    with ``None`` as default value. This doesn't support changing selected field/value.
-    """
-
-    @property
-    def value(self) -> object:
-        r"""
-        Returns the value of the existing instance of roster.
-
-        Raises:
-            ValueError: If several values are defined.
-
-        Returns:
-            object: Selected instance.
-        """
-        selected_fields = [
-            field.name for field in fields(self) if getattr(self, field.name, None)
-        ]
-        # Check if Union is discriminated
-        if len(selected_fields) != 1:
-            raise ValueError(
-                f"{self} Expecting one selected field, got {selected_fields}"
-            )
-        return getattr(self, selected_fields[0])
-
-
 class RegistryMeta(abc.ABCMeta, LoggerMixin):
     r"""
     Metaclass dedicated to autofill the discriminated unions.
@@ -98,11 +68,11 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
         @Tracker.register()
         class ClassesRoster(DiscriminatedUnion):
             pass
-        
+
         # If no instance is passed then the roster
         # will be empty and no value will be returned
         ClassesRoster()
-        
+
         # If an instance is passed the roster will retain
         # it and the value is exactly the given instance
         ClassesRoster(TrackedClass1=TrackedClass1("Hello", 5)),
