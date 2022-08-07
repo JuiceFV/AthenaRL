@@ -416,8 +416,8 @@ class EpisodesBuffer(LoggerMixin):
             raise RuntimeError(
                 f"Cannot sample {batch_size} since there are no valid indices so far."
             )
-        valid_idcs = self._is_index_valid.nonzero().squeeze(1)
-        return valid_idcs[torch.randint(valid_idcs.shape[0], (batch_size,))]
+        valid_indcs = self._is_index_valid.nonzero().squeeze(1)
+        return valid_indcs[torch.randint(valid_indcs.shape[0], (batch_size,))]
 
     def sample_observation_batch(self, batch_size: int = None, indices: torch.Tensor = None):
         """Returns a batch of observations (including any extra contents).
@@ -461,10 +461,10 @@ class EpisodesBuffer(LoggerMixin):
         # window of `stack_size` from last to first record in an
         # episode.
         forward_indicies = torch.arange(self._episode_capacity)
-        episode_step_idcs = indices.unsqueeze(1) + forward_indicies
-        episode_step_idcs %= self._capacity
+        episode_step_indcs = indices.unsqueeze(1) + forward_indicies
+        episode_step_indcs %= self._capacity
 
-        steps = self._get_steps(episode_step_idcs)
+        steps = self._get_steps(episode_step_indcs)
         # NOTE: The following implementation of indices batching
         # could be changed depends on class and batching type.
         margin_indices = (indices + steps - 1) % self._capacity
