@@ -17,7 +17,7 @@ def prod_probas(
             
     Shape:
         - probas: :math:`(B, S, I)`
-        - indices: :math:`(B, S)`
+        - indices: :math:`(B, 1)`
         
     Notations:
         - :math:`B` - batch size.
@@ -29,8 +29,8 @@ def prod_probas(
     """
     return torch.clamp(
         torch.prod(
-            torch.gather(probas, 2, indices.unsqueeze(2)).squeeze(1),
-            dim=2,
+            torch.gather(probas, 2, indices.unsqueeze(2)).squeeze(2),
+            dim=1,
             keepdim=True
         ),
         # Due to torch.log(0) = -inf replace it with a tiny value
