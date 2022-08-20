@@ -1,11 +1,11 @@
-from typing import Callable, Dict, Optional, Tuple, List, cast, Union
+from typing import Dict, Optional, Tuple, List, cast
 import torch
 
 from torch.nn import Module, Parameter
 from athena.core.parameters import NormalizationParams
 from athena.core.dtypes import Ftype
 from athena.core.logger import LoggerMixin
-from athena.preprocessing.normalization import MAX_FVALUE, MIN_FVALUE
+from athena.preprocessing import MAX_FVALUE, MIN_FVALUE
 
 
 class Preprocessor(Module, LoggerMixin):

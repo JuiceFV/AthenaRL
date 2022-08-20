@@ -2,8 +2,7 @@ from typing import Any, Iterable, Union
 import numpy as np
 
 from athena.core.dtypes import Ftype
-
-DEFAULT_MAX_UNIQUE_ENUM = 16
+from athena.preprocessing import DEFAULT_MAX_UNIQUE_ENUM
 
 
 def _is_probability(fvalues: Iterable[float]) -> bool:

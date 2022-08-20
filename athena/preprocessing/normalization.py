@@ -1,21 +1,17 @@
-from dataclasses import asdict
 import json
-import numpy as np
-from scipy import stats
-
+from dataclasses import asdict
 from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 from athena.core.dtypes import Ftype
 from athena.core.parameters import NormalizationParams
-from athena.preprocessing.identify_types import identify_type, DEFAULT_MAX_UNIQUE_ENUM
-
-BOXCOX_MARGIN = 1e-4
-MISSING_VALUE = -228.228
-BOXCOX_MAX_STDEV = 1e8
-DEFAULT_MAX_QUANTILE_SIZE = 20
-DEFAULT_QUANTILE_K2_THRESHOLD = 1000.0
-MIN_SAMPLES_TO_IDENTIFY = 20
-MAX_FVALUE = 11.513
-MIN_FVALUE = MAX_FVALUE * -1
+from athena.preprocessing import (BOXCOX_MARGIN, BOXCOX_MAX_STDEV,
+                                  DEFAULT_MAX_QUANTILE_SIZE,
+                                  DEFAULT_MAX_UNIQUE_ENUM,
+                                  DEFAULT_QUANTILE_K2_THRESHOLD,
+                                  MIN_SAMPLES_TO_IDENTIFY)
+from athena.preprocessing.identify_types import identify_type
+from scipy import stats
 
 
 def identify_param(
