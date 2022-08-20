@@ -112,13 +112,11 @@ class PreprocessedRankingInput(TensorDataClass):
     #: Ground-truth target input sequence representaation.
     gt_target_output_seq: Optional[Feature] = None
 
-    @property
     def batch_size(self) -> int:
-        # TODO: replace with lazy_property
         return self.latent_state.repr.size()[0]
 
     def __len__(self) -> int:
-        return self.batch_size
+        return self.batch_size()
 
     @classmethod
     def from_input(
