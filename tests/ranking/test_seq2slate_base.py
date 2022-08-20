@@ -9,8 +9,7 @@ import numpy.testing as npt
 import pytorch_lightning as pl
 import torch
 from athena.core.dtypes import IPSBlurMethod, Seq2SlateOutputArch
-from athena.core.dtypes.ranking.seq2slate import (Seq2SlateMode,
-                                                  Seq2SlateTransformerOutput)
+from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode
 from athena.core.dtypes.rl.base import IPSBlur
 from athena.core.parameters import Seq2SlateParams
 from athena.models.ranking.seq2slate import Seq2SlateTransformerNetwork
@@ -82,7 +81,7 @@ def create_on_policy_batch(
     batch = adt.PreprocessedRankingInput.from_input(state=state, candidates=candidates, device=device)
 
     torch.manual_seed(rank_seed)
-    ordered_output: Seq2SlateTransformerOutput = net(
+    ordered_output: adt.RankingOutput = net(
         batch, mode=Seq2SlateMode.RANK_MODE, target_seq_len=num_of_candidates, greedy=False
     )
     ordered_indcs = ordered_output.ordered_target_out_indcs - 2
@@ -227,7 +226,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         seq2slate_net = trainer.reinforce.to(device)
 
         torch.manual_seed(rank_seed)
-        ordered_output: Seq2SlateTransformerOutput = seq2slate_net_copy1(
+        ordered_output: adt.RankingOutput = seq2slate_net_copy1(
             batch, mode=Seq2SlateMode.RANK_MODE, target_seq_len=num_of_candidates, greedy=False
         )
         loss = -torch.mean(torch.log(ordered_output.ordered_per_seq_probas) * batch.slate_reward)
