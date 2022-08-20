@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import athena.core.dtypes as adt
 import torch.nn.functional as F
@@ -59,7 +59,7 @@ class Seq2SlateTrainer(AthenaLightening):
         blured_importance_weights = ips_blur(importance_weights, self.params.ips_blur)
         return importance_weights, blured_importance_weights
 
-    def training_step(self, batch: adt.PreprocessedRankingInput, batch_idx: int, optimizer_idx: int = 0) -> STEP_OUTPUT:
+    def training_step(self, batch: adt.PreprocessedRankingInput, batch_idx: int) -> STEP_OUTPUT:
         if type(batch) is not adt.PreprocessedRankingInput:
             raise TypeError(f"Batch has to be of type {adt.PreprocessedRankingInput}; got {type(batch)}")
 

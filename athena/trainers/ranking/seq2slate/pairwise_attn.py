@@ -3,7 +3,8 @@ import torch
 import numpy as np
 import torch.nn as nn
 from athena.core.dataclasses import field
-from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode, Seq2SlateTransformerOutput
+from athena.core.dtypes.ranking.base import RankingOutput
+from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode
 from athena.models import Seq2SlateTransformerNetwork
 from athena.optim import OptimizerRoster
 from athena.trainers import AthenaLightening
@@ -80,7 +81,7 @@ class Seq2SlatePairwiseAttnTrainer(AthenaLightening):
             self.reporter.log(eval_cross_entropy_loss=cross_entropy_loss)
             return None
 
-        ordered_output: Seq2SlateTransformerOutput = self.network(
+        ordered_output: RankingOutput = self.network(
             validation_batch, mode=Seq2SlateMode.RANK_MODE, greedy=True
         )
 
