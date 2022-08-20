@@ -1,29 +1,14 @@
-from dataclasses import dataclass
+"""
+TODO: pbly recompose and move following dtypes out:
+* SamplingOutput
+"""
 from typing import Any, Optional, Union
 
 import torch
 from athena.core.base_dclass import BaseDataClass
+from athena.core.dataclasses import dataclass
 from athena.core.enum_meta import AthenaEnumMeta, Enum
 from athena.core.logger import LoggerMixin
-
-
-@dataclass
-class Dataset:
-    json_url: str
-
-
-@dataclass
-class TableSpec:
-    table_name: str
-    table_sample: Optional[float] = None
-    val_table_sample: Optional[float] = None
-    test_table_sample: Optional[float] = None
-
-
-@dataclass
-class ReaderOptions:
-    minibatch_size: int = 1024
-    reader_pool_type: str = "thread"
 
 
 @dataclass

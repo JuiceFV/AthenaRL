@@ -1,19 +1,22 @@
-from athena.core.dtypes.base import (Dataset, Feature, ReaderOptions,
-                                     TableSpec, TensorDataClass,
-                                     SamplingOutput, Ftype)
+"""TODO: Check for ciricular imports and logical modules in dtyeps
+"""
+from athena.core.base_dclass import BaseDataClass
+from athena.core.dtypes.base import (Feature, Ftype, SamplingOutput,
+                                     TensorDataClass)
 from athena.core.dtypes.ranking import (DocSeq, PreprocessedRankingInput,
                                         RankingOutput, Seq2SlateMode,
                                         Seq2SlateOutputArch,
                                         Seq2SlateTransformerOutput,
                                         Seq2SlateVersion)
+from athena.core.dtypes.results import (PublishingResultRoster, TrainingOutput,
+                                        ValidationResultRoster)
 from athena.core.dtypes.rl import IPSBlur, IPSBlurMethod
-from athena.core.base_dclass import BaseDataClass
-
+from athena.core.dtypes.dataset import Dataset, TableSpec
+from athena.core.dtypes.options import AthenaOptions
 
 __all__ = [
     "Dataset",
     "TableSpec",
-    "ReaderOptions",
     "TensorDataClass",
     "Feature",
     "DocSeq",
@@ -27,5 +30,9 @@ __all__ = [
     "IPSBlurMethod",
     "BaseDataClass",
     "SamplingOutput",
-    "Ftype"
+    "Ftype",
+    "TrainingOutput",
+    "AthenaOptions",
+    "PublishingResultRoster",
+    "ValidationResultRoster"
 ]
