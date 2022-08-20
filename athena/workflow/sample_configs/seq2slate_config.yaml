@@ -2,6 +2,8 @@ input_table_spec:
   table_name: test_table
   table_sample: 100
   val_table_sample: 0
-model:
-  Seq2Slate:
-    a: 0
+model: {}
+nepochs: 10
+options: {}
+warmstart_path: ~
+validator: ~
