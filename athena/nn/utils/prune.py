@@ -52,6 +52,7 @@ def mask_by_index(input: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
     Returns:
         torch.Tensor: Masked input tensor.
     """
+    # TODO: Add option for the force masking padding and start symbols
     batch_size, size = indices.shape
     # Getting indicies ones should be masked
     # Overlay lower triangular matrix and choose
