@@ -1,10 +1,12 @@
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
-from typing import Tuple, Optional
-from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode, Seq2SlateOutputArch, Seq2SlateTransformerOutput
+from athena.core.dtypes.ranking.seq2slate import (Seq2SlateMode,
+                                                  Seq2SlateOutputArch)
 from athena.models.base import BaseModel
-from athena.preprocessing.preprocessor import Preprocessor
 from athena.models.ranking.seq2slate import Seq2SlateTransformerNetwork
+from athena.preprocessing.preprocessor import Preprocessor
 
 
 class SlateRankingPreprocessor(BaseModel):
@@ -75,7 +77,7 @@ class Seq2SlateWithPreprocessor(nn.Module):
     ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor]]:
         preprocessed_state, preprocessed_candidates = self.preprocessor(state_with_presence, candidate_with_presence)
         max_source_seq_len = preprocessed_candidates.shape[1]
-        output: Seq2SlateTransformerOutput = self.model(
+        output = self.model(
             mode=Seq2SlateMode.RANK_MODE.value,
             latent_state=preprocessed_state,
             source_seq=preprocessed_candidates,
