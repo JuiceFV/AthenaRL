@@ -4,7 +4,7 @@ The module implements discriminated union register.
 import abc
 import os
 from dataclasses import fields
-from typing import Any, Callable, Dict, Optional, Tuple, Type
+from typing import Any, Dict, Optional, Tuple, Type
 
 from athena.core.dataclasses import dataclass
 from athena.core.logger import LoggerMixin
@@ -19,7 +19,7 @@ class DiscriminatedUnion:
     """
 
     @property
-    def value(self) -> object:
+    def value(self) -> Any:
         r"""
         Returns the value of the existing instance of roster.
 
@@ -80,7 +80,7 @@ class RegistryMeta(abc.ABCMeta, LoggerMixin):
     def __init__(cls, name: str, bases: Tuple[type, ...], attrs: Dict[str, Any]):
         if not hasattr(cls, "REGISTRY"):
             # Put REGISTRY on cls. This only happens once on the base class
-            cls.info("Adding REGISTRY to type {}".format(name))
+            cls.info(f"Adding REGISTRY to type {name}")
             cls.REGISTRY: Dict[str, Type] = {}
             cls.REGISTRY_NAME = name
             cls.REGISTRY_FROZEN = False

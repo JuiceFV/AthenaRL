@@ -4,7 +4,6 @@ import athena.core.dtypes as adt
 from athena.core.base_dclass import BaseDataClass
 from athena.core.config import param_hash
 from athena.core.dataclasses import dataclass
-from athena.preprocessing.identify_types import Ftype
 
 SortedList = List[float]
 EnumValues = List[int]
@@ -30,7 +29,7 @@ class Seq2SlateParams(BaseDataClass):
 class NormalizationParams(BaseDataClass):
     __hash__ = param_hash
 
-    ftype: Ftype
+    ftype: adt.Ftype
     boxcox_lambda: Optional[float] = None
     boxcox_shift: Optional[float] = None
     mean: Optional[float] = None
