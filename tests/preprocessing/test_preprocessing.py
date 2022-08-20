@@ -1,17 +1,22 @@
 import unittest
 from typing import Dict
 
+import athena.preprocessing.normalization as normalization
 import numpy as np
 import numpy.testing as npt
 import torch
-import athena.preprocessing.normalization as normalization
 from athena.core.dtypes import Ftype
 from athena.core.parameters import NormalizationParams
-from athena.preprocessing.normalization import (MISSING_VALUE, identify_param,
+from athena.preprocessing import MISSING_VALUE
+from athena.preprocessing.normalization import (identify_param,
                                                 sort_features_by_normalization)
 from athena.preprocessing.preprocessor import Preprocessor
-from tests.preprocessing.utils import BOXCOX_FEATURE_ID, CONTINUOUS_FEATURE_ID, ENUM_FEATURE_ID, PROBABILITY_FEATURE_ID, NumpyFeaturePreprocessor, id2type, variate_data
 from scipy import special
+from tests.preprocessing.utils import (BOXCOX_FEATURE_ID,
+                                       CONTINUOUS_FEATURE_ID, ENUM_FEATURE_ID,
+                                       PROBABILITY_FEATURE_ID,
+                                       NumpyFeaturePreprocessor, id2type,
+                                       variate_data)
 
 
 class TestPreprocessing(unittest.TestCase):

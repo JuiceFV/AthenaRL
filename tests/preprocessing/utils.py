@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from athena.core.dtypes import Ftype
 from athena.core.parameters import NormalizationParams
-from athena.preprocessing.normalization import BOXCOX_MARGIN, MAX_FVALUE, MIN_FVALUE, MISSING_VALUE
+from athena.preprocessing import BOXCOX_MARGIN, MAX_FVALUE, MIN_FVALUE, MISSING_VALUE
 from scipy import stats, special
 
 BINARY_FEATURE_ID = 1
