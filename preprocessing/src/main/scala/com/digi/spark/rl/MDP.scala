@@ -14,9 +14,10 @@ case class ExtraFeatureColumn(columnName: String, columnType: String)
 case class MDPConfiguration(
     startDsId: String,
     endDsId: String,
+    addTerminalRow: Boolean,
     inputTableName: String,
     outputTableName: String,
-    outlierSequenceLengthPercentile: Option[Double] = None,
+    outlierEpisodeLengthPercentile: Option[Double] = None,
     percentileFunction: String = "percentile_approx",
     rewardColumns: List[String] = Constants.DEFAULT_REWARD_COLUMNS,
     extraFeatureColumns: List[String] = Constants.DEFAULT_EXTRA_FEATURE_COLUMNS
@@ -28,6 +29,10 @@ object MDP {
         sqlContext: SQLContext, 
         config: MDPConfiguration
     ): Unit = {
+        var filterTerminal = "WHERE next_state_features IS NOT NULL"
+        if (config.addTerminalRow) {
+            filterTerminal = "";
+        }
         val actionsDataType = 
             Utils.getDataTypes(sqlContext, config.inputTableName, List("actions"))("actions")
         logger.info("Actions column data type:" + s"${actionsDataType}")
@@ -51,34 +56,38 @@ object MDP {
             mdpAdditionalColumnDataTypes
         )
 
-        config.outlierSequenceLengthPercentile.foreach { percentile =>
+        config.outlierEpisodeLengthPercentile.foreach { percentile =>
             sqlContext.sql(s"""
-                SELECT sequence_number, COUNT(sequence_number) AS sequence_length
+                SELECT mdp_id, COUNT(mdp_id) AS mdp_length
                 FROM ${config.inputTableName}
                 WHERE ds_id BETWEEN '${config.startDsId}' AND '${config.endDsId}'
-                GROUP BY sequence_number
-            """").createOrReplaceTempView("seq_length")
+                GROUP BY mdp_id
+            """).createOrReplaceTempView("episode_length")
         }
 
-        val sequenceLengthThreshold = MDP.lengthThreshold(
+        val mdpLengthThreshold = MDP.lengthThreshold(
             sqlContext,
-            config.outlierSequenceLengthPercentile,
-            "sequence",
+            config.outlierEpisodeLengthPercentile,
+            "mdp",
             config.percentileFunction,
-            "seq_length"
+            "episode_length"
         )
 
-        val seqFilter = sequenceLengthThreshold
+        val mdpFilter = mdpLengthThreshold
             .map { threshold => 
-                s"seq_filter AS (SELECT sequence_number FROM seq_length WHERE sequence_length <= ${threshold}),"
+                s"""mdp_filter AS (
+                    SELECT mdp_id 
+                    FROM episode_length 
+                    WHERE mdp_length <= ${threshold}
+                ),"""
             }
             .getOrElse("")
 
-        val joinClause = sequenceLengthThreshold
+        val joinClause = mdpLengthThreshold
             .map { threshold => 
                 s"""
-                JOIN seq_filter
-                WHERE a.sequence_number = seq_filter.sequence_number AND
+                JOIN mdp_filter
+                WHERE a.mdp_id = mdp_filter.mdp_id AND
                 """.stripMargin
             }
             .getOrElse("WHERE")
@@ -92,7 +101,7 @@ object MDP {
         }
 
         val sourceTable = s"""
-            WITH ${seqFilter}
+            WITH ${mdpFilter}
                 source_table AS (
                     SELECT
                         a.mdp_id,
@@ -123,8 +132,7 @@ object MDP {
                     ORDER BY
                         mdp_id,
                         sequence_number
-                    ) AS ${Utils.nextStepColumnName(k)}
-                )
+                ) AS ${Utils.nextStepColumnName(k)}
                 """
         }
 
@@ -165,16 +173,20 @@ object MDP {
             CLUSTER BY HASH(mdp_id, sequence_number)
         )
         SELECT * FROM joined_table
+        ${filterTerminal}
         """.stripMargin
 
         logger.info("Executing query: ")
+        logger.info(sqlCommand)
         var df = sqlContext.sql(sqlCommand)
         logger.info("Done with query")
 
-        val handleCols = Map(
+        val handleCols = mdpAdditionalColumnDataTypes.++(
+            Map(
                 "actions" -> actionsDataType,
                 "state_features" -> "map<bigint,double>"
             )
+        )
 
         
         for ((colName, colType) <- handleCols) {
