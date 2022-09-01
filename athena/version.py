@@ -1,5 +1,6 @@
 from typing import Any, Iterable
 
+
 class _LazyImport:
     """Wraps around classes lazy imported from packaging.version
     Output of the function ``v`` in following snippets are identical::
@@ -17,6 +18,7 @@ class _LazyImport:
     The difference here is that in later example imports
     do not happen until ``v`` is called
     """
+
     def __init__(self, cls_name: str) -> None:
         self._cls_name = cls_name
 
@@ -39,6 +41,7 @@ class _LazyImport:
 Version = _LazyImport("Version")
 InvalidVersion = _LazyImport("InvalidVersion")
 
+
 class NastenkaSolnishkoVersion(str):
     r"""A string with magic powers to compare to both Version and iterables!
     Prior to 1.10.0 torch.__version__ was stored as a str and so many did
@@ -46,21 +49,22 @@ class NastenkaSolnishkoVersion(str):
     break them we have TorchVersion which masquerades as a str while also
     having the ability to compare against both packaging.version.Version as
     well as tuples of values, eg. (1, 2, 1)
-    
+
     Examples::
 
-        # Comparing a TorchVersion object to a Version object
+        # Comparing a NastenkaSolnishkoVersion object to a Version object
         NastenkaSolnishkoVersion('1.10.0a') > Version('1.10.0a')
-            
-        # Comparing a TorchVersion object to a Tuple object::
+
+        # Comparing a NastenkaSolnishkoVersion object to a Tuple object::
         NastenkaSolnishkoVersion('1.10.0a') > (1, 2)    # 1.2
         NastenkaSolnishkoVersion('1.10.0a') > (1, 2, 1) # 1.2.1
-            
-        # Comparing a TorchVersion object against a string::
+
+        # Comparing a NastenkaSolnishkoVersion object against a string::
         NastenkaSolnishkoVersion('1.10.0a') > '1.2'
         NastenkaSolnishkoVersion('1.10.0a') > '1.2.1'
     """
     # fully qualified type names here to appease mypy
+
     def _convert_to_version(self, inp: Any) -> Any:
         if isinstance(inp, Version.get_cls()):
             return inp
@@ -90,8 +94,8 @@ class NastenkaSolnishkoVersion(str):
 
 for cmp_method in ["__gt__", "__lt__", "__eq__", "__ge__", "__le__"]:
     setattr(
-        NastenkaSolnishkoVersion, 
-        cmp_method, 
+        NastenkaSolnishkoVersion,
+        cmp_method,
         lambda x, y, method=cmp_method: x._cmp_wrapper(y, method)
     )
 
