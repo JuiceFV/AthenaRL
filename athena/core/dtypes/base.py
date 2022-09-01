@@ -15,8 +15,8 @@ from athena.core.logger import LoggerMixin
 class TensorDataClass(BaseDataClass, LoggerMixin):
     r"""
     The base data structure represents n-dimensional tensor-based data.
-    Generally, we don't need internal :class:`torch.Tensor` implementation 
-    to represent tensor-based data, i.e. the explicit interface is enough. 
+    Generally, we don't need internal :class:`torch.Tensor` implementation
+    to represent tensor-based data, i.e. the explicit interface is enough.
     If a structure has multiple :class:`torch.Tensor` fields then attribute
     call will be applied to each one.
 
@@ -53,9 +53,9 @@ class TensorDataClass(BaseDataClass, LoggerMixin):
                 )
 
         def tensor_attrs_call(*args, **kwargs):
-            """The TensorDataClass is the base one, thus we wanna get 
-            attribute (when we call `__getattr__`) at every single 
-            child's `Callable` attribute where it possible (if 
+            """The TensorDataClass is the base one, thus we wanna get
+            attribute (when we call `__getattr__`) at every single
+            child's `Callable` attribute where it possible (if
             child's attribute has torch.Tensor instance).
             """
             def recursive_call(obj: Any):
@@ -121,7 +121,7 @@ class Ftype(str, Enum, metaclass=AthenaEnumMeta):
     """_summary_
 
     TODO:
-        - Add action types. Descrete - CTR; Continuous - Time spent;
+        - Add action types. Discrete - CTR; Continuous - Time spent;
     """
     BINARY = "binary"
     CONTINUOUS = "continuous"

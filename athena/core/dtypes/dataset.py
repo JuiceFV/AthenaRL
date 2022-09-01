@@ -2,6 +2,7 @@ from typing import Optional
 
 from athena.core.dataclasses import dataclass
 
+
 @dataclass
 class Dataset:
     parquet_url: str
