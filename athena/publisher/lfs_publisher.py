@@ -12,16 +12,17 @@ from tinydb import Query, TinyDB
 KEY_FIELD = "model_config"
 VALUE_FIELD = "torchscript_path"
 
+
 @dataclass
 class LFSPublisher(ModelPublisher, LoggerMixin):
-    
+
     publishing_file: str = "/tmp/lfs_publisher"
-    
+
     def __post_init_post_parse__(self):
         self.publishing_file = os.path.abspath(self.publishing_file)
         self.db = TinyDB(self.publishing_file)
         self.info(f"Using TinyDB at {self.publishing_file}")
-        
+
     def get_latest_publishing_model(self, model_manager: ModelManager, module_name: str) -> str:
         model = Query()
         key = f"{module_name}_{str({model_manager})}"
@@ -32,7 +33,7 @@ class LFSPublisher(ModelPublisher, LoggerMixin):
             else:
                 raise RuntimeError(f"Got {len(results)} results for model_manager. {results}")
         return results[0][VALUE_FIELD]
-    
+
     def do_publish(self, model_manager: ModelManager, training_output: TrainingOutput) -> NoPublishingResults:
         for model_name, path in training_output.output_paths.items():
             if not os.path.exists(path):
