@@ -44,3 +44,9 @@ class NormalizationParams(BaseDataClass):
 class NormalizationData(BaseDataClass):
     __hash__ = param_hash
     dense_normalization_params: Dict[int, NormalizationParams]
+
+
+class NormalizationKey:
+    STATE = "state"
+    ACTION = "action"
+    CANDIDATE = "candidate"
