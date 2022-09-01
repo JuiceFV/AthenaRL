@@ -8,7 +8,7 @@ from athena.net_builder.slate_reranking_builder import SlateRerankingNetBuilder
 @dataclass
 class Seq2SlateReranking(SlateRerankingNetBuilder):
     __hash__ = param_hash
-    
+
     output_arch: Seq2SlateOutputArch = Seq2SlateOutputArch.AUTOREGRESSIVE
     temperature: float = 1.0
     transformer: TransformerParams = field(
