@@ -2,8 +2,11 @@ Cython==0.29.28
 numpy==1.23.1
 pytorch-lightning @ git+https://github.com/PyTorchLightning/pytorch-lightning@9b011606f
 petastorm==0.11.4
+# TODO: Probably replace with the latest version (1.9.2)
+# https://github.com/samuelcolvin/pydantic/issues/2042
 pydantic>=1.4,<1.7
 click==8.0.4
 ruamel.yaml==0.17.21
 scikit-learn==0.24.2
 tinydb==4.7.0
+pyspark==3.3.0
