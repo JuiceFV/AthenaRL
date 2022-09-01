@@ -58,7 +58,7 @@ class ValueListMonitor(Tracker):
 
     def update(self, field: str, value: Any) -> None:
         self.values.append(value)
-        
+
     def reset(self):
         self.values.clear()
 

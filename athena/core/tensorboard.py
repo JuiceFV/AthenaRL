@@ -35,31 +35,32 @@ class SummaryWriterContextMeta(type, LoggerMixin):
                 raise
         return call
 
+
 class SummaryWriterContext(metaclass=SummaryWriterContextMeta):
     _writer_stacks: List[SummaryWriter] = []
     _global_step = 0
     _custom_scalars: Dict[str, Any] = {}
-    
+
     @classmethod
     def _reset_globals(cls) -> None:
         cls._global_step = 0
         cls._custom_scalars.clear()
-    
+
     @classmethod
     def increase_global_step(cls) -> None:
         cls._global_step += 1
-        
+
     @classmethod
     def add_histogram(cls, tag: str, values: Union[torch.Tensor, np.ndarray], *args, **kwargs) -> None:
         try:
             return getattr(cls, "add_histogram")(tag, values, *args, **kwargs)
         except ValueError:
             cls.warning(f"Cannot create histogram for {tag}, got values: {values}")
-            
+
     @classmethod
     def add_custom_scalars(cls, writer: SummaryWriter) -> None:
         writer.add_custom_scalars(cls._custom_scalars)
-        
+
     @classmethod
     def add_custom_scalars_multichart(cls, tags: Any, category: str, title: str) -> None:
         if category not in cls._custom_scalars:
@@ -67,17 +68,18 @@ class SummaryWriterContext(metaclass=SummaryWriterContextMeta):
         if title in cls._custom_scalars[category]:
             raise ValueError(f"Title ({title}) is already in category ({category})")
         cls._custom_scalars[category][title] = ["Multiline", tags]
-        
+
     @classmethod
     def push(cls, writer: SummaryWriter) -> None:
         if not isinstance(writer, SummaryWriter):
             raise TypeError(f"Writer is not a SummaryWriter: {writer}")
         cls._writer_stacks.append(writer)
-        
+
     @classmethod
     def pop(cls) -> SummaryWriter:
         return cls._custom_scalars.pop()
-    
+
+
 @contextlib.contextmanager
 def summary_writer_context(writer: SummaryWriter):
     if writer is not None:
