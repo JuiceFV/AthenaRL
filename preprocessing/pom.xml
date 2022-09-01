@@ -7,13 +7,13 @@
     4.0.0
   </modelVersion>
   <groupId>
-    dpp
+    RDD
   </groupId>
   <artifactId>
     preprocessing
   </artifactId>
   <version>
-    1.1
+    0.1
   </version>
   <packaging>
     jar
@@ -297,6 +297,7 @@
         </version>
         <executions>
           <execution>
+            <?m2e execute onConfiguration?>
             <id>
               eclipse-add-source
             </id>
@@ -307,6 +308,7 @@
             </goals>
           </execution>
           <execution>
+            <?m2e execute onConfiguration?>
             <id>
               scala-compile-first
             </id>
@@ -317,6 +319,7 @@
             </goals>
           </execution>
           <execution>
+            <?m2e execute onConfiguration?>
             <id>
               scala-test-compile-first
             </id>
