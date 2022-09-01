@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, List
+from typing import Dict
 
 import torch
 from athena.core.logger import LoggerMixin
