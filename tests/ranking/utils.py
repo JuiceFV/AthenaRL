@@ -6,7 +6,7 @@ from typing import List, Optional, Tuple
 import torch
 import athena.core.dtypes as adt
 from athena import gather
-from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode, Seq2SlateOutputArch, Seq2SlateTransformerOutput, Seq2SlateVersion
+from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode, Seq2SlateOutputArch, Seq2SlateVersion
 from athena.models.base import BaseModel
 from athena.models.ranking.seq2slate import Seq2SlateTransformerNetwork
 from athena.core.parameters import Seq2SlateParams
