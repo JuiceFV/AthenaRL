@@ -7,7 +7,7 @@ from athena.core.enum_meta import AthenaEnumMeta
 
 class Seq2SlateMode(Enum, metaclass=AthenaEnumMeta):
     r"""
-    The mode in which :class:`athena.models.ranking.seq2slate.Seq2SlateTransformerModel` 
+    The mode in which :class:`athena.models.ranking.seq2slate.Seq2SlateTransformerModel`
     performs.
     """
     #: Returns ranked items and their generative probabilities.
@@ -61,9 +61,9 @@ class Seq2SlateVersion(Enum, metaclass=AthenaEnumMeta):
     """
     #: Teacher-forcing fashion. Ground truth required.
     TEACHER_FORCING = "teacher_forcing"
-    
-    #: RL fashion. 
+
+    #: RL fashion.
     REINFORCEMENT_LEARNING = "reinforcement_learning"
-    
+
     #: Pairwise fashion. Without decoder.
     PAIRWISE_ATTENTION = "pairwise_attention"
