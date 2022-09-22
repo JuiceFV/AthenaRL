@@ -1,3 +1,4 @@
+import torch.nn as nn
 from typing import Dict, List, Optional
 
 import athena.core.dtypes as adt
@@ -48,5 +49,11 @@ class NormalizationData(BaseDataClass):
 
 class NormalizationKey:
     STATE = "state"
-    ACTION = "action"
+    ACTIONS = "actions"
     CANDIDATE = "candidate"
+
+
+@dataclass(frozen=True)
+class EvaluationParams(BaseDataClass):
+    cpe: bool = False
+    propensity_network: Optional[nn.Module] = None
