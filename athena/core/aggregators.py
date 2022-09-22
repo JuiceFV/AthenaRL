@@ -1,4 +1,4 @@
-from typing import List, Tuple, Union
+from typing import Any, List, Tuple, Union
 import torch
 from athena.core.tracker import Aggregator
 
@@ -18,3 +18,28 @@ class MeanAggregator(TensorAggregator):
         mean = values.mean().item()
         self.info(f"{self.field}: {mean}")
         self.values.append(mean)
+
+
+class ListAggregator(TensorAggregator):
+    def __init__(self, field: str) -> None:
+        super().__init__(field)
+        self.values: List[Any] = []
+
+    def aggregate(self, values: List[Any]):
+        self.values.extend(values)
+
+
+class LastEpochListAggregator(TensorAggregator):
+    def __init__(self, field: str) -> None:
+        super().__init__(field)
+        self.values: List[Any] = []
+        self.epoch_values: List[Any] = []
+
+    def aggregate(self, values: torch.Tensor):
+        flattened = torch.flatten(values).tolist()
+        self.values.extend(flattened)
+
+    def flush(self):
+        if self.values:
+            self.epoch_values = self.values
+            self.values.clear()
