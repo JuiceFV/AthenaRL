@@ -9,7 +9,7 @@ config file compatible to the runner arguments (types including).
 import functools
 from dataclasses import MISSING, Field, fields
 from inspect import Parameter, isclass, signature
-from typing import Any, Callable, List, Optional, Type, Union
+from typing import Any, Callable, List, Optional, Union
 
 
 from athena.core.dataclasses import dataclass
@@ -66,9 +66,9 @@ def create_config_class(
     In that case, the func has to be wrapped with :func:`resolve_defaults` below.
 
     .. note::
-        
+
         ``allowlist`` & ``blocklist`` are mutually exclusive.
-        
+
     Example::
 
         def func(a: int, b: str = "Hellow World"):
@@ -77,7 +77,7 @@ def create_config_class(
         @create_config_class(func)
         class FuncClass:
             pass
-        
+
         FuncClass(1) # FuncClass(a=1, b='Hellow World')
 
     Args:
