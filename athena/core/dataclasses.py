@@ -4,6 +4,7 @@ of type-class definition (including type checking)
 import dataclasses
 import os
 import pydantic
+import logging
 
 from dataclasses import field  # noqa
 from typing import TYPE_CHECKING, Any, Optional
@@ -16,6 +17,11 @@ ARBITRARY_TYPES_ALLOWED = bool(
     int(os.environ.get("ARBITRARY_TYPES_ALLOWED", True))
 )
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+logger.info(f"USE_VANILLA_DATACLASS: {USE_VANILLA_DATACLASS}")
+logger.info(f"ARBITRARY_TYPES_ALLOWED: {ARBITRARY_TYPES_ALLOWED}")
 
 if TYPE_CHECKING:
     from dataclasses import dataclass
