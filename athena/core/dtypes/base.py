@@ -2,11 +2,12 @@
 TODO: pbly recompose and move following dtypes out:
 * SamplingOutput
 """
-from typing import Any, Optional, Union
+from dataclasses import dataclass, field
+from typing import Any, List, Optional, Union
 
 import torch
 from athena.core.base_dclass import BaseDataClass
-from athena.core.dataclasses import dataclass
+from athena.core.dataclasses import dataclass as pydantic_dataclass
 from athena.core.enum_meta import AthenaEnumMeta, Enum
 from athena.core.logger import LoggerMixin
 
@@ -130,3 +131,18 @@ class Ftype(str, Enum, metaclass=AthenaEnumMeta):
     ENUM = "enum"
     QUANTILE = "quantile"
     DO_NOT_PREPROCESS = "do_not_preprocess"
+
+
+@pydantic_dataclass
+class ContinuousFeatureInfo(BaseDataClass):
+    name: str
+    feature_id: int
+
+
+@pydantic_dataclass
+class ModelFeatureConfig(BaseDataClass):
+    """_summary_
+
+    TODO: Add id mappings
+    """
+    continuous_feature_infos: List[ContinuousFeatureInfo] = field(default_factory=list)

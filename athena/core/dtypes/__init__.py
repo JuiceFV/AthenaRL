@@ -2,7 +2,7 @@
 """
 from athena.core.base_dclass import BaseDataClass
 from athena.core.dtypes.base import (Feature, Ftype, SamplingOutput,
-                                     TensorDataClass)
+                                     TensorDataClass, ContinuousFeatureInfo, ModelFeatureConfig)
 from athena.core.dtypes.ranking import (DocSeq, PreprocessedRankingInput,
                                         RankingOutput, Seq2SlateMode,
                                         Seq2SlateOutputArch,
@@ -34,5 +34,7 @@ __all__ = [
     "TrainingOutput",
     "AthenaOptions",
     "PublishingResultRoster",
-    "ValidationResultRoster"
+    "ValidationResultRoster",
+    "ContinuousFeatureInfo",
+    "ModelFeatureConfig"
 ]
