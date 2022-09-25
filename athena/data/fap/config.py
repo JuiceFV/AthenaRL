@@ -17,6 +17,8 @@ class FSConfigBase(abc.ABC):
 
 @dataclass
 class SparkConfig(FSConfigBase):
+    # TODO: make typed params (5 - int, true - bool)
+    # TODO: Add extra options
     spark_app_name: str = "NastenkaSolnishko"
     spark_sql_session_timeZone: str = "UTC"
     spark_driver_host: str = "127.0.0.1"
@@ -26,6 +28,7 @@ class SparkConfig(FSConfigBase):
     spark_sql_execution_arrow_enabled: str = "true"
     spark_driver_extraClassPath: str = join(dirname(dirname(athena.__file__)), SPARK_JAR_REL_PATH)
     spark_sql_catalogImplementation: str = "hive"
+    spark_driver_memory: str = "5g"
 
     def asdict(self) -> Dict[str, str]:
         return {".".join(field.name.split("_")): getattr(self, field.name) for field in fields(self)}
