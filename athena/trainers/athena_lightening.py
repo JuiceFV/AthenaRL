@@ -1,11 +1,11 @@
 import inspect
-from typing import Any, Generator, Optional, Union
+from typing import Generator, Optional, Union
 
 import pytorch_lightning as pl
 import torch
 from athena.core.dtypes.base import TensorDataClass
 from athena.core.logger import LoggerMixin
-from pytorch_lightning.loggers.base import DummyExperiment, LoggerCollection
+from pytorch_lightning.loggers.logger import DummyExperiment, LoggerCollection
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from typing_extensions import final
@@ -26,8 +26,23 @@ class AthenaLightening(pl.LightningModule, LoggerMixin):
         self.register_buffer("_cleanly_stopped", None)
         self._next_stopping_epoch = torch.tensor([-1]).int()
         self._cleanly_stopped = torch.ones(1)
-        self.batches_processed_this_epoch = 0
+        self._setup_input_type()
+        self.train_batches_processed_this_epoch = 0
+        self.val_batches_processed_this_epoch = 0
+        self.test_batches_processed_this_epoch = 0
         self.all_batches_processed = 0
+
+    def _setup_input_type(self) -> None:
+        self._training_batch_type = None
+        sig = inspect.signature(self.train_step_gen)
+        if not ("training_batch" in sig.parameters):
+            raise RuntimeError("Missing training data to infer its type.")
+        param = sig.parameters["training_batch"]
+        annotation = param.annotation
+        if annotation == inspect.Parameter.empty:
+            return
+        if hasattr(annotation, "from_dict"):
+            self._training_batch_type = annotation
 
     def set_reporter(self, reporter: Optional[ReporterBase]) -> "AthenaLightening":
         if reporter is None:
@@ -47,21 +62,21 @@ class AthenaLightening(pl.LightningModule, LoggerMixin):
         self.set_clean_stop(False)
         return self
 
-    def train_step_gen(
-        self, 
-        training_batch: TensorDataClass, 
-        batch_idx: int
-    ) -> Generator[STEP_OUTPUT, None, None]:
+    def train_step_gen(self, training_batch: TensorDataClass, batch_idx: int) -> Generator[STEP_OUTPUT, None, None]:
         raise NotImplementedError
-    
+
+    def soft_update_result(self) -> torch.Tensor:
+        one = torch.ones(1, requires_grad=True)
+        return one + one
+
     @property
     def summary_writer(self):
         if self._summary_writer_logger is self.logger:
             return self._summary_writer
-        
+
         self._summary_writer = None
         self._summary_writer_logger = self.logger
-        
+
         if isinstance(self.logger, LoggerCollection):
             for logger in self.logger:
                 if isinstance(logger, TensorBoardLogger):
@@ -69,23 +84,25 @@ class AthenaLightening(pl.LightningModule, LoggerMixin):
                     break
         elif isinstance(self.logger, TensorBoardLogger):
             self._summary_writer = self.logger.experiment
-            
+
         return self._summary_writer
-    
+
     def training_step(
-        self, 
-        batch: TensorDataClass, 
-        batch_idx: int, 
+        self,
+        batch: TensorDataClass,
+        batch_idx: int,
         optimizer_idx: int = 0
     ) -> STEP_OUTPUT:
         if optimizer_idx >= self._num_opt_steps:
             raise IndexError(f"Index {optimizer_idx} out of bound {self._num_opt_steps}")
-        
+
         if self._training_step_gen is None:
+            if self._training_batch_type and isinstance(batch, dict):
+                batch = self._training_batch_type.from_dict(batch)
             self._training_step_gen = self.train_step_gen(batch, batch_idx)
-            
+
         output = next(self._training_step_gen)
-        
+
         if optimizer_idx == self._num_opt_steps - 1:
             if not self._verified_steps:
                 try:
@@ -94,43 +111,77 @@ class AthenaLightening(pl.LightningModule, LoggerMixin):
                     self._verified_steps = True
                 if not self._verified_steps:
                     raise RuntimeError(
-                        f"The number of training steps should match the number " 
+                        f"The number of training steps should match the number "
                         f"of optimizers {self._num_opt_steps}"
                     )
             self._training_step_gen = None
             SummaryWriterContext.increase_global_step()
         return output
-    
+
     def optimizers(self, use_pl_optimizer: bool = True):
         opt = super().optimizers(use_pl_optimizer)
         return opt if isinstance(opt, list) else [opt]
-        
-            
+
     @property
     def _num_opt_steps(self) -> int:
         # TODO: replace with lazy property https://stackoverflow.com/a/6849299/11748947
         return len(self.configure_optimizers())
-    
+
     @final
-    def on_epoch_end(self) -> None:
+    def on_train_epoch_end(self) -> None:
         self.info(
-            f"Finished epoch with {self.batches_processed_this_epoch} batches processed"
+            f"Finished train epoch {self.current_epoch} "
+            f"with {self.train_batches_processed_this_epoch} batches processed"
         )
-        self.batches_processed_this_epoch = 0
+        self.train_batches_processed_this_epoch = 0
         self.reporter.flush(self.current_epoch)
-        
+
         if self.current_epoch == self._next_stopping_epoch.item():
             self.trainer.should_stop = True
-            
+
+    @final
+    def on_validation_epoch_end(self) -> None:
+        self.info(
+            f"Finished validation epoch {self.current_epoch} "
+            f"with {self.val_batches_processed_this_epoch} batches processed"
+        )
+        self.val_batches_processed_this_epoch = 0
+        self.reporter.flush(self.current_epoch)
+
+    @final
+    def on_test_epoch_end(self) -> None:
+        self.info(
+            f"Finished test epoch {self.current_epoch} "
+            f"with {self.test_batches_processed_this_epoch} batches processed"
+        )
+        self.test_batches_processed_this_epoch = 0
+        self.reporter.flush(self.current_epoch)
+
     @final
     def on_train_batch_end(self, *args, **kwargs) -> None:
-        self.batches_processed_this_epoch += 1
+        self.train_batches_processed_this_epoch += 1
         self.all_batches_processed += 1
-        
+
     @final
     def on_validation_batch_end(self, *args, **kwargs) -> None:
-        self.batches_processed_this_epoch += 1
-        
+        self.val_batches_processed_this_epoch += 1
+        self.all_batches_processed += 1
+
     @final
     def on_test_batch_end(self, *args, **kwargs) -> None:
-        self.batches_processed_this_epoch += 1
+        self.test_batches_processed_this_epoch += 1
+        self.all_batches_processed += 1
+
+
+class StoppingEpochCallback(pl.Callback, LoggerMixin):
+    def __init__(self, num_epochs: int) -> None:
+        super().__init__()
+        self.num_epochs = num_epochs
+
+    def on_pretrain_routine_end(self, trainer: pl.Trainer, pl_module: AthenaLightening) -> None:
+        if not isinstance(pl_module, AthenaLightening):
+            raise TypeError("Module should be instantiate from AthenaLigthening.")
+        cleanly_stopped = pl_module._cleanly_stopped.item()
+        self.info(f"Cleanly stopped: {cleanly_stopped}")
+        if cleanly_stopped:
+            pl_module.increase_next_stopping_epochs(self.num_epochs)
