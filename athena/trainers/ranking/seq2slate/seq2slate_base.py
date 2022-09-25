@@ -53,7 +53,9 @@ class Seq2SlateTrainer(AthenaLightening):
             optimizers.append(self.baseline_optimizer.create_optimizer_scheduler(self.baseline.parameters()))
         return optimizers
 
-    def importance_sampling(self, model_propensities: torch.Tensor, logged_propensities: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def importance_sampling(
+        self, model_propensities: torch.Tensor, logged_propensities: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         logged_propensities = logged_propensities.reshape(-1, 1)
         importance_weights = ips_ratio(model_propensities, logged_propensities)
         blured_importance_weights = ips_blur(importance_weights, self.params.ips_blur)
@@ -93,14 +95,14 @@ class Seq2SlateTrainer(AthenaLightening):
         b = b.detach()
         if b.shape != reward.shape != model_propensities.shape:
             raise RuntimeError(
-                f"Shapes of policy gradient entities doesn't match. "
+                f"Shapes of policy gradient entities don't match. "
                 f"{b.shape} {reward.shape} {model_propensities.shape}"
             )
 
         ips_weights, blured_ips_weights = self.importance_sampling(model_propensities, batch.target_output_probas)
         if ips_weights.shape != blured_ips_weights.shape != reward.shape:
             raise RuntimeError(
-                f"Shapes of policy gradient entities doesn't match. "
+                f"Shapes of policy gradient entities don't match. "
                 f"{ips_weights.shape} {blured_ips_weights.shape} {reward.shape}"
             )
 
@@ -191,7 +193,7 @@ class Seq2SlateTrainer(AthenaLightening):
         if self.cpe:
             if outputs is None:
                 raise RuntimeError("If counterfactual evaluation policy is on, batches' evaluators are expected.")
-            
+
             eobs_greedy, eobs_nongreedy = None, None
             for eob_greedy, eob_nongreedy in outputs:
                 if eobs_greedy is None and eobs_nongreedy is None:
