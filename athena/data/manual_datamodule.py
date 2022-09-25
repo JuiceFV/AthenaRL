@@ -1,18 +1,19 @@
-import abc
 import pickle
 import torch
-from typing import Callable, Dict, NamedTuple, Optional, Tuple, List
+import pandas as pd
+from typing import Any, Callable, Dict, Generator, NamedTuple, Optional, Tuple, List, Union
 
-from petastorm import make_batch_reader
+from petastorm import make_batch_reader, TransformSpec
 from petastorm.pytorch import DataLoader, decimal_friendly_collate
 from athena.core.dtypes import Dataset, TableSpec
-from athena.core.dtypes.options import MLOptionsRoster, ReaderOptions, ResourceOptions
+from athena.core.dtypes.options import RLOptions, ReaderOptions, ResourceOptions
 from athena.data.athena_datamodule import AthenaDataModule
 from athena.data.data_extractor import DataExtractor
 from athena.core.parameters import NormalizationData
 from athena.data.fap.fapper import FAPper
 from athena.model_managers.manager import ModelManager
 from athena.preprocessing.batch_preprocessor import BatchPreprocessor
+from athena.preprocessing.transforms import Transformation, Compose
 
 
 class TrainEValSampleRanges(NamedTuple):
@@ -33,7 +34,7 @@ def get_sample_range(
             train_sample_range = (0.0, table_sample)
         return TrainEValSampleRanges(
             train_sample_range=train_sample_range,
-            val_sample_range=(0.0, 0.0),
+            eval_sample_range=(0.0, 0.0),
         )
 
     if any([
@@ -61,8 +62,9 @@ class ManualDataModule(AthenaDataModule):
 
     def __init__(
         self,
-        ml_options: MLOptionsRoster,
+        fapper: FAPper,
         *,
+        rl_options: Optional[RLOptions] = None,
         input_table_spec: Optional[TableSpec] = None,
         setup_data: Optional[Dict[str, bytes]] = None,
         saved_setup_data: Optional[Dict[str, bytes]] = None,
@@ -70,9 +72,9 @@ class ManualDataModule(AthenaDataModule):
         resource_options: Optional[ReaderOptions] = None,
         model_manager: Optional[ModelManager] = None
     ):
-        super().__init__()
+        super().__init__(fapper=fapper)
         self.input_table_spec = input_table_spec
-        self.ml_options = ml_options
+        self.rl_options = rl_options or RLOptions()
         self.reader_options = reader_options or ReaderOptions()
         self.resource_options = resource_options or ResourceOptions(gpu=0)
         self._model_manager = model_manager
@@ -85,7 +87,7 @@ class ManualDataModule(AthenaDataModule):
         self._num_test_data_loader_calls = 0
 
     @property
-    def trian_data(self) -> Optional[Dataset]:
+    def train_data(self) -> Optional[Dataset]:
         return getattr(self, "_train_data", None)
 
     @property
@@ -112,8 +114,8 @@ class ManualDataModule(AthenaDataModule):
     def get_normalization_dict(self, keys: Optional[List[str]] = None) -> Dict[str, NormalizationData]:
         return self._normalization_dict
 
-    def __getattr__(self, attr: str) -> Dict[str, NormalizationData]:
-        normalization_data_suffix = "_normalization_data"
+    def __getattr__(self, attr: str) -> NormalizationData:
+        normalization_data_suffix = "_normalization_dict"
         if attr.endswith(normalization_data_suffix):
             if self._normalization_dict is None:
                 raise RuntimeError(
@@ -130,13 +132,13 @@ class ManualDataModule(AthenaDataModule):
             return normalization_data
         raise AttributeError(f"attr {attr} not available {type(self)}")
 
-    def prepare_data(self, fapper: FAPper) -> Dict[str, bytes]:
+    def prepare_data(self) -> Optional[Dict[str, bytes]]:
         if self.setup_data is not None:
             return None
 
         key = "normalization_dict"
 
-        data_extractor = DataExtractor(fapper=fapper)
+        data_extractor = DataExtractor(fapper=self.fapper)
 
         if key not in self.saved_setup_data:
             normalization_dict = self.run_feature_identification(self.input_table_spec)
@@ -147,7 +149,7 @@ class ManualDataModule(AthenaDataModule):
         train_data = self.query_data(
             input_table_spec=self.input_table_spec,
             sample_range=sample_range.train_sample_range,
-            ml_options=self.ml_options,
+            rl_options=self.rl_options,
             data_extractor=data_extractor
         )
         eval_data = None
@@ -155,7 +157,7 @@ class ManualDataModule(AthenaDataModule):
             eval_data = self.query_data(
                 input_table_spec=self.input_table_spec,
                 sample_range=sample_range.eval_sample_range,
-                ml_options=self.ml_options,
+                rl_options=self.rl_options,
                 data_extractor=data_extractor
             )
 
@@ -166,7 +168,7 @@ class ManualDataModule(AthenaDataModule):
         if self._setup_done:
             return
 
-        setup_data = {k: pickle.loads(v) for k, v in self.setup_data}
+        setup_data = {k: pickle.loads(v) for k, v in self.setup_data.items()}
 
         self._normalization_dict = setup_data["normalization_dict"]
         self._train_data = setup_data["train_data"]
@@ -184,38 +186,17 @@ class ManualDataModule(AthenaDataModule):
         )
         return setup_data
 
-    @abc.abstractmethod
-    def run_feature_identification(self, input_table_spec: TableSpec) -> Dict[str, NormalizationData]:
-        pass
-
-    @property
-    @abc.abstractmethod
-    def should_generate_eval_dataset(self) -> bool:
-        pass
-
-    @abc.abstractmethod
-    def query_data(
-        self,
-        input_table_spec: TableSpec,
-        sample_range: Optional[Tuple[float, float]],
-        ml_options: MLOptionsRoster,
-        data_extractor: DataExtractor
-    ) -> Dataset:
-        pass
-
-    @abc.abstractmethod
-    def build_batch_preprocessor(self) -> BatchPreprocessor:
-        pass
-
     def get_dataloader(self, dataset: Dataset, identity: str = "Default"):
         batch_preprocessor = self.build_batch_preprocessor()
+        transformation = self.build_transformation()
         reader_options = self.reader_options
         if reader_options is None:
             raise RuntimeError("Reader options must be defined")
         data_reader = make_batch_reader(
             dataset.parquet_url,
             num_epochs=1,
-            reader_pool_type=reader_options.petasorm_reader_pool_type
+            reader_pool_type=reader_options.petasorm_reader_pool_type,
+            transform_spec=TransformSpec(arbitrary_transform(transformation))
         )
         dataloader = DataLoader(
             data_reader,
@@ -241,7 +222,7 @@ class ManualDataModule(AthenaDataModule):
         return None if not eval_data else self.get_dataloader(eval_data, identity)
 
 
-def _closing_iter(dataloader: DataLoader):
+def _closing_iter(dataloader: DataLoader) -> Generator[Union[Dict, List, Any], None, None]:
     yield from dataloader
     dataloader.__exit__(None, None, None)
 
@@ -249,10 +230,18 @@ def _closing_iter(dataloader: DataLoader):
 def collate_and_preprocess(
     batch_preprocessor: BatchPreprocessor, use_gpu: bool
 ) -> Callable[[List[Dict]], torch.Tensor]:
-    def collate_fn(batch_list: List[Dict]):
+    def collate_fn(batch_list: List[Dict]) -> torch.Tensor:
         batch = decimal_friendly_collate(batch_list)
         preprocessed_batch: torch.Tensor = batch_preprocessor(batch)
         if use_gpu:
             preprocessed_batch = preprocessed_batch.cuda()
         return preprocessed_batch
     return collate_fn
+
+
+def arbitrary_transform(
+    transformation: Union[Compose, Transformation]
+) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    def transfrom_fn(table: pd.DataFrame) -> pd.DataFrame:
+        return transformation(table)
+    return transfrom_fn
