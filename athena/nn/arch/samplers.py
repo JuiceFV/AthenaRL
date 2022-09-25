@@ -10,7 +10,7 @@ from athena.core.config import resolve_defaults
 from torch.distributions import Gumbel
 
 
-class Sampler(abc.ABC, nn.Module):
+class Sampler(nn.Module):
     """Base sampler class from which one all
     samplers should be forked.
 
@@ -21,6 +21,7 @@ class Sampler(abc.ABC, nn.Module):
     @abc.abstractmethod
     def sample(scores: torch.Tensor) -> adt.SamplingOutput:
         raise NotImplementedError()
+
 
 class SimplexSampler(nn.Module):
     r"""
@@ -56,7 +57,7 @@ class SimplexSampler(nn.Module):
         >>> input = torch.Tensor([[[0.1, 0.3, 0.05, 0.07, 0.08, 0.5]]])
         >>> sampler(input, greedy=False)
         (tensor([[0]]), tensor([[0.1000, 0.3000, 0.0500, 0.0700, 0.0800, 0.5000]]))
-        
+
         >>> sampler = SimplexSampler()
         >>> input = torch.Tensor([[[0.1, 0.3, 0.05, 0.07, 0.08, 0.5]]])
         >>> sampler(input, greedy=True)
@@ -82,7 +83,7 @@ class SimplexSampler(nn.Module):
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: Chosen vertex & Generative probabilities of last step.
-            
+
         FIXME: Currently, torch.jit.script doesn't trace the `adt.SamplingOutput`. It worths to
         make all samplers according to the sole template.
         """
@@ -100,6 +101,8 @@ class SimplexSampler(nn.Module):
 
 
 class FrechetSort:
+    r"""
+    """
 
     @resolve_defaults
     def __init__(self, shape: float = 1.0, topk: Optional[int] = None, equiv_len: Optional[int] = None, log_scores: bool = False) -> None:

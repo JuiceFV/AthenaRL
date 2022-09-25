@@ -1,16 +1,17 @@
 import torch
 
+
 def mask_by_index(input: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
     r"""
     Mask out a tensor according to the given indices.
 
-    .. note:: 
-        
-        Masked items are set to :math:`-\infty` so that :func:`torch.nn.functional.softmax` 
+    .. note::
+
+        Masked items are set to :math:`-\infty` so that :func:`torch.nn.functional.softmax`
         application gives zero probability to pick it.
-        
-        .. code-block:: python 
-        
+
+        .. code-block:: python
+
             >>> masked_input[i][j][k] = float("-inf")
             >>> probas = torch.softmax(masked_input, dim=2)
             >>> probas[i][j][k]
@@ -18,10 +19,10 @@ def mask_by_index(input: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
 
     .. warning::
 
-        Currently input tensor is considered as 3-D tensor, one represents sequential data 
+        Currently input tensor is considered as 3-D tensor, one represents sequential data
         so for the higher dimension tensors the behaviour is indeterministic. The masking,
         apparently is featurewise (occurs for the last dimension).
-        
+
     Example::
 
         >>> input = torch.rand(3, 2, 3)
@@ -35,7 +36,7 @@ def mask_by_index(input: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
 
                 [[0.0469,   -inf, 0.3706],
                 [0.4661, 0.5410, 0.9782]]])
-    
+
     Args:
         input (torch.Tensor): Input tensor which should be masked.
         indices (torch.Tensor): Indices of input target seqence.
@@ -43,12 +44,12 @@ def mask_by_index(input: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
     Shape:
         - input: :math:`(B, S, I)`
         - indices: :math:`(B, S)`
-        
+
     Notations:
         - :math:`B` - batch size.
         - :math:`S` - sequence length.
         - :math:`I` - item's vector dimensionality.
-    
+
     Returns:
         torch.Tensor: Masked input tensor.
     """
