@@ -36,26 +36,29 @@ class PreprocessedRankingInput(TensorDataClass):
     """The data format dedicated as input to a ranking
     model. Tentatiely, the data must be preprocessed.
 
-    .. note:: 
+    .. note::
 
-        Due to ranking algorithms are so diverse there are 
+        Due to ranking algorithms are so diverse there are
         only two mandatory fields, while others are Optional.
 
         1. Latent state. ML algorithms tends to optimise some
         weight matrices so they require embedded state representation
-        to make assumption which item hould be placed next.
+        to make assumption which item should be placed next.
 
         2. Featurewise sequence. It's obviously that we need input
         sequence which should be ranked or re-ranked.
 
-    .. warning:: 
+    .. warning::
 
-        Note that in the ``target_*`` indices are shifted by two, 
+        Note that in the ``target_*`` indices are shifted by two,
         due to the padding and start symbol.
     """
 
     #: The state one depicts rich representation
     #: of a sequence. :math:`e = E(\{x_i\}_{i=0}^n)`.
+    #: Originally in ranking problem only documents
+    #: are represented in the state, but RecSys may
+    #: enrich it with an user representation.
     latent_state: Feature
 
     #: Sequence feature-wise representation :math:`\{x_i\}_{i=1}^n`.
@@ -138,8 +141,10 @@ class PreprocessedRankingInput(TensorDataClass):
             device (torch.device): Device where computations occur.
             actions (Optional[torch.Tensor], optional): Target arangment "actions". Defaults to None.
             gt_actions (Optional[torch.Tensor], optional): Ground truth actions. Defaults to None.
-            logged_propensities (Optional[torch.Tensor], optional): Propensities predicted by base model. Defaults to None.
-            slate_reward (Optional[torch.Tensor], optional): Total reward calculated for a permutation. Defaults to None.
+            logged_propensities (Optional[torch.Tensor], optional): Propensities predicted by base model.
+                Defaults to None.
+            slate_reward (Optional[torch.Tensor], optional): Total reward calculated for a permutation.
+                Defaults to None.
             position_reward (Optional[torch.Tensor], optional): Item-at-position reward. Defaults to None.
 
         Raises:
@@ -210,7 +215,9 @@ class PreprocessedRankingInput(TensorDataClass):
         source_input_indcs = torch.arange(num_of_candidates, device=device).repeat(batch_size, 1) + 2
         source2source_mask = torch.ones(batch_size, num_of_candidates, num_of_candidates).type(torch.int8).to(device)
 
-        def process_target_sequence(actions: Optional[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        def process_target_sequence(
+            actions: Optional[torch.Tensor]
+        ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             target_input_indcs = None
             target_output_indcs = None
             target_input_seq = None
