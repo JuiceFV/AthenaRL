@@ -1,6 +1,6 @@
 import torch
 
-from athena.version import __version__ as __version__
+from athena.version import __version__ as __version__ # noqa
 
 
 def gather(data: torch.Tensor, indices_2d: torch.Tensor) -> torch.Tensor:
@@ -13,7 +13,7 @@ def gather(data: torch.Tensor, indices_2d: torch.Tensor) -> torch.Tensor:
 
         Assume data is 3d with shape :math:`(B, N, M)`, and ``indices_2d``'s 
         shape is :math:`(B, N)`.
-    
+
     .. note::
 
         This function does not require ``data``, output, or ``index_2d`` 
@@ -22,7 +22,7 @@ def gather(data: torch.Tensor, indices_2d: torch.Tensor) -> torch.Tensor:
     Args:
         data (torch.Tensor): The source data gather from.
         indices_2d (torch.Tensor): The indices of elements to gather.
-    
+
     Shape:
         - data: :math:`(B, N, M)`
         - indices_2d: :math:`(B, N)`
