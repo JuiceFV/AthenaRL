@@ -21,6 +21,19 @@ Base
 
     TensorDataClass
 
+Preprocessing
+-------------
+
+.. currentmodule:: athena.core.dtypes.preprocessing
+
+.. autosummary::
+    :toctree: generated
+    :nosignatures:
+    :template: classtemplate.rst
+
+    InputColumn
+    PreprocessingOptions
+
 Ranking
 -------
 
