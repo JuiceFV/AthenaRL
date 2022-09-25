@@ -15,7 +15,9 @@ class Preprocessor(Module, LoggerMixin):
         - Add continuous action preprocessing
     """
 
-    def __init__(self, normalization_params: Dict[int, NormalizationParams], device: Optional[torch.device] = None) -> None:
+    def __init__(
+        self, normalization_params: Dict[int, NormalizationParams], device: Optional[torch.device] = None
+    ) -> None:
         super().__init__()
         self.normalization_params = normalization_params
         self.fid2index, self.sorted_features, _ = self._sort_features_by_normalization()
@@ -58,6 +60,8 @@ class Preprocessor(Module, LoggerMixin):
         )
 
     def forward(self, input: torch.Tensor, input_presence: torch.Tensor) -> torch.Tensor:
+        if len(self.normalization_params) == 0:
+            return input
         outputs = []
         split_input = torch.split(input, self.split_sections, dim=1)
         split_presence = torch.split(input_presence.float(), self.split_sections, dim=1)
@@ -95,7 +99,9 @@ class Preprocessor(Module, LoggerMixin):
 
         return torch.cat(outputs, dim=1)
 
-    def _preprocess_feature(self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]) -> torch.Tensor:
+    def _preprocess_feature(
+        self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]
+    ) -> torch.Tensor:
         ftype = norm_params[0].ftype
         preprocessor = getattr(self, "_preprocess_" + ftype.value)
         # FIXME: Further norm_params has to be unpacked for the ENUM
@@ -192,28 +198,40 @@ class Preprocessor(Module, LoggerMixin):
             torch.tensor(norm_params.possible_values, device=self.device, dtype=torch.float).unsqueeze(0)
         )
 
-    def _preprocess_do_not_preprocess(self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]) -> torch.Tensor:
+    def _preprocess_do_not_preprocess(
+        self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]
+    ) -> torch.Tensor:
         return input
 
-    def _preprocess_binary(self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]) -> torch.Tensor:
+    def _preprocess_binary(
+        self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]
+    ) -> torch.Tensor:
         return self.one_tensor - (input == self.zero_tensor).float()
 
-    def _preprocess_probability(self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]) -> torch.Tensor:
+    def _preprocess_probability(
+        self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]
+    ) -> torch.Tensor:
         bounded_input = torch.clamp(input, 1e-5, 1 - 1e-5)
         return self.negative_one_tensor * (self.one_tensor / bounded_input - self.one_tensor).log()
 
-    def _preprocess_continuous(self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]) -> torch.Tensor:
+    def _preprocess_continuous(
+        self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]
+    ) -> torch.Tensor:
         means = self._fetch_param(begin_fheader, "means")
         stdevs = self._fetch_param(begin_fheader, "stdevs")
         return (input - means) / stdevs
 
-    def _preprocess_boxcox(self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]) -> torch.Tensor:
+    def _preprocess_boxcox(
+        self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]
+    ) -> torch.Tensor:
         shifts = self._fetch_param(begin_fheader, "shifts")
         lambdas = self._fetch_param(begin_fheader, "lambdas")
         boxcox_output = (torch.pow(torch.clamp(input + shifts, 1e-6), lambdas) - self.one_tensor) / lambdas
         return self._preprocess_continuous(begin_fheader, boxcox_output, norm_params)
 
-    def _preprocess_quantile(self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]) -> torch.Tensor:
+    def _preprocess_quantile(
+        self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]
+    ) -> torch.Tensor:
         nquantiles = self._fetch_param(begin_fheader, "nquantiles")
         quantile_boundaries = self._fetch_param(begin_fheader, "quantile_boundaries")
         max_quantile_boundaries = self._fetch_param(begin_fheader, "max_quantile_boundaries")
@@ -245,7 +263,9 @@ class Preprocessor(Module, LoggerMixin):
         ).float()
         return max_clamp + (interpolate * interpolated_values).float()
 
-    def _preprocess_enum(self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]) -> torch.Tensor:
+    def _preprocess_enum(
+        self, begin_fheader: int, input: torch.Tensor, norm_params: List[NormalizationParams]
+    ) -> torch.Tensor:
         enum_values = self._fetch_param(begin_fheader, "enum_values")
         return (input == enum_values).float()
 
