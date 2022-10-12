@@ -1,6 +1,6 @@
 import torch
 
-from athena.version import __version__ as __version__ # noqa
+from athena.version import __version__ as __version__  # noqa
 
 
 def gather(data: torch.Tensor, indices_2d: torch.Tensor) -> torch.Tensor:
@@ -9,14 +9,14 @@ def gather(data: torch.Tensor, indices_2d: torch.Tensor) -> torch.Tensor:
 
         output[i][j] = data[i][indices_2d[i][j]]
 
-    .. warning:: 
+    .. warning::
 
-        Assume data is 3d with shape :math:`(B, N, M)`, and ``indices_2d``'s 
+        Assume data is 3d with shape :math:`(B, N, M)`, and ``indices_2d``'s
         shape is :math:`(B, N)`.
 
     .. note::
 
-        This function does not require ``data``, output, or ``index_2d`` 
+        This function does not require ``data``, output, or ``index_2d``
         having the same shape, which is mandated by :func:`torch.gather`.
 
     Args:
