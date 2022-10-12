@@ -2,13 +2,12 @@
 of type-class definition (including type checking)
 """
 import dataclasses
-import os
-import pydantic
 import logging
-
+import os
 from dataclasses import field  # noqa
 from typing import TYPE_CHECKING, Any, Optional
 
+import pydantic
 
 USE_VANILLA_DATACLASS = bool(
     int(os.environ.get("USE_VANILLA_DATACLASS", False))

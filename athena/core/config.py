@@ -2,7 +2,7 @@
 When a user executes a runner YAML-config file is passed.
 In purpose to properly handle the configuration w/o
 flexibility damage we parse runner prototype and compare
-its arguments to the configuration content. So that 
+its arguments to the configuration content. So that
 a user can define its own runner function and create
 config file compatible to the runner arguments (types including).
 """
@@ -11,10 +11,9 @@ from dataclasses import MISSING, Field, fields
 from inspect import Parameter, isclass, signature
 from typing import Any, Callable, List, Optional, Union
 
-
-from athena.core.dataclasses import dataclass
 from torch import nn
 
+from athena.core.dataclasses import dataclass
 
 BLOCKLIST_TYPES = [nn.Module]
 
@@ -27,7 +26,7 @@ def _get_param_annotation(param: Parameter) -> type:
 
     Raises:
         ValueError: If not annotated and unable to infer type from default
-        ValueError: If not annotated and has no default to infer type 
+        ValueError: If not annotated and has no default to infer type
         ValueError: If tuple then value could be any type
         ValueError: If dict then value could be any type
 

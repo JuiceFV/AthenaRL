@@ -1,5 +1,5 @@
-import sys
 import abc
+import sys
 from types import TracebackType
 from typing import Optional, Type
 
