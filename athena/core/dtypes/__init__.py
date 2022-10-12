@@ -1,9 +1,11 @@
-"""TODO: Check for ciricular imports and logical modules in dtyeps
-"""
 from athena.core.base_dclass import BaseDataClass
-from athena.core.dtypes.base import (Feature, Ftype, SamplingOutput,
-                                     TensorDataClass, ContinuousFeatureInfo, ModelFeatureConfig)
-from athena.core.dtypes.ranking import (DocSeq, PreprocessedRankingInput,
+from athena.core.dtypes.base import (ContinuousFeatureInfo, Feature, Ftype,
+                                     IDListFeatureConfig, IDMappingConfig,
+                                     IDScoreListFeatureConfig,
+                                     ModelFeatureConfig, TensorDataClass)
+from athena.core.dtypes.dataset import Dataset, TableSpec
+from athena.core.dtypes.options import AthenaOptions
+from athena.core.dtypes.ranking import (PreprocessedRankingInput,
                                         RankingOutput, Seq2SlateMode,
                                         Seq2SlateOutputArch,
                                         Seq2SlateTransformerOutput,
@@ -11,17 +13,17 @@ from athena.core.dtypes.ranking import (DocSeq, PreprocessedRankingInput,
 from athena.core.dtypes.results import (PublishingResultRoster, TrainingOutput,
                                         ValidationResultRoster)
 from athena.core.dtypes.rl import IPSBlur, IPSBlurMethod
-from athena.core.dtypes.dataset import Dataset, TableSpec
-from athena.core.dtypes.options import AthenaOptions
 
 __all__ = [
     "Dataset",
     "TableSpec",
     "TensorDataClass",
     "Feature",
-    "DocSeq",
     "RankingOutput",
     "PreprocessedRankingInput",
+    "IDListFeatureConfig",
+    "IDScoreListFeatureConfig",
+    "IDMappingConfig",
     "Seq2SlateMode",
     "Seq2SlateOutputArch",
     "Seq2SlateTransformerOutput",
@@ -29,7 +31,6 @@ __all__ = [
     "IPSBlur",
     "IPSBlurMethod",
     "BaseDataClass",
-    "SamplingOutput",
     "Ftype",
     "TrainingOutput",
     "AthenaOptions",
