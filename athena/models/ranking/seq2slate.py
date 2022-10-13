@@ -24,17 +24,18 @@ from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
+
 from athena import gather
 from athena.core.config import param_hash
 from athena.core.dataclasses import dataclass
 from athena.core.dtypes import (PreprocessedRankingInput, RankingOutput,
                                 Seq2SlateMode, Seq2SlateOutputArch,
                                 Seq2SlateTransformerOutput)
-from athena.nn.arch.transformer import DECODER_START_SYMBOL, PADDING_SYMBOL
 from athena.core.logger import LoggerMixin
 from athena.models.base import BaseModel
 from athena.nn.arch import (PointwisePTDecoder, PTEncoder, SimplexSampler,
                             TransformerEmbedding, VLPositionalEncoding)
+from athena.nn.arch.transformer import DECODER_START_SYMBOL, PADDING_SYMBOL
 from athena.nn.functional import prod_probas
 from athena.nn.utils.prune import mask_by_index
 from athena.nn.utils.transformer import decoder_mask
@@ -77,7 +78,7 @@ class Seq2SlateTransformerModel(nn.Module):
     of vocabulary (source sequence itself). Check :class:`athena.nn.PointwisePTDecoder` for the details.
 
     Args:
-        latent_state_dim (int): The dimension of the current state.
+        state_dim (int): The dimension of the current state.
         candidate_dim (int): The dimension of a candidate.
         nlayers (int): The number of stacked encoder and decoder layers.
         nheads (int): The number of heads used in transformer.
@@ -90,8 +91,8 @@ class Seq2SlateTransformerModel(nn.Module):
         output_arch (Seq2SlateOutputArch): The output architecture of the model.
             Specifically, used to generalize the output for the different model variations.
         temperature (float, optional): The temperature of decoder softmax. Defaults to ``1.0``.
-        latent_state_embed_dim (Optional[int], optional): Embedding dimension of the
-            latent state. In case it's not specified ``latent_state_embed_dim = dim_model/2``.
+        state_embed_dim (Optional[int], optional): Embedding dimension of the
+            latent state. In case it's not specified ``state_embed_dim = dim_model/2``.
             Defaults to ``None``.
 
     .. warning::
@@ -104,7 +105,7 @@ class Seq2SlateTransformerModel(nn.Module):
         The purpose of their exhibition is the detailed description of the model performance.
     """
     __constants__ = [
-        "latent_state_dim",
+        "state_dim",
         "candidate_dim",
         "nlayers",
         "nheads",
@@ -124,7 +125,7 @@ class Seq2SlateTransformerModel(nn.Module):
 
     def __init__(
         self,
-        latent_state_dim: int,
+        state_dim: int,
         candidate_dim: int,
         nlayers: int,
         nheads: int,
@@ -134,10 +135,10 @@ class Seq2SlateTransformerModel(nn.Module):
         max_target_seq_len: int,
         output_arch: Seq2SlateOutputArch,
         temperature: float = 1.0,
-        latent_state_embed_dim: Optional[int] = None
+        state_embed_dim: Optional[int] = None
     ) -> None:
         super().__init__()
-        self.latent_state_dim = latent_state_dim
+        self.state_dim = state_dim
         self.candidate_dim = candidate_dim
         self.nlayers = nlayers
         self.nheads = nheads
@@ -147,11 +148,11 @@ class Seq2SlateTransformerModel(nn.Module):
         self.max_target_seq_len = max_target_seq_len
         self.output_arch = output_arch
 
-        if latent_state_embed_dim is None:
-            latent_state_embed_dim = dim_model // 2
-        candidate_embed_dim = dim_model - latent_state_embed_dim
-        self.latent_state_embedding = TransformerEmbedding(
-            self.latent_state_dim, latent_state_embed_dim
+        if state_embed_dim is None:
+            state_embed_dim = dim_model // 2
+        candidate_embed_dim = dim_model - state_embed_dim
+        self.state_embedding = TransformerEmbedding(
+            self.state_dim, state_embed_dim
         )
         self.candidate_embedding = TransformerEmbedding(
             self.candidate_dim, candidate_embed_dim
@@ -190,7 +191,7 @@ class Seq2SlateTransformerModel(nn.Module):
     def forward(
         self,
         mode: str,
-        latent_state: torch.Tensor,
+        state: torch.Tensor,
         source_seq: torch.Tensor,
         target_seq_len: Optional[int] = None,
         target_input_seq: Optional[torch.Tensor] = None,
@@ -203,7 +204,7 @@ class Seq2SlateTransformerModel(nn.Module):
         Args:
             mode (str): The mode one depicts how is model performing. For the details see
               :class:`athena.core.dtypes.ranking.seq2slate.Seq2SlateMode`.
-            latent_state (torch.Tensor): Current latent state of the model.
+            state (torch.Tensor): Current latent state of the model.
             source_seq (torch.Tensor): Source sequence.
             target_seq_len (Optional[int], optional): The length of output sequence to be decoded.
               Only used in RANK mode. Defaults to ``None``.
@@ -216,7 +217,7 @@ class Seq2SlateTransformerModel(nn.Module):
             greedy (Optional[bool], optional): The greedy sample. Defaults to ``None``.
 
         Shape:
-            - latent_state: :math:`(B, H)`
+            - state: :math:`(B, H)`
             - source_seq: :math:`(B, S, C)`
             - target_input_seq: :math:`(B, T, C)`
             - target_input_indcs: :math:`(B, T)`
@@ -246,7 +247,7 @@ class Seq2SlateTransformerModel(nn.Module):
                     "Ranking mode requires sampling method (greedy or not)"
                 )
             return self._rank(
-                latent_state,
+                state,
                 source_seq,
                 target_seq_len,
                 greedy
@@ -260,7 +261,7 @@ class Seq2SlateTransformerModel(nn.Module):
                     f"Given {target_input_seq, target_input_indcs, target_output_indcs}"
                 )
             return self._log_probas(
-                latent_state,
+                state,
                 source_seq,
                 target_input_seq,
                 target_input_indcs,
@@ -273,7 +274,7 @@ class Seq2SlateTransformerModel(nn.Module):
                     f"Expected target_input_indcs; Given {target_input_indcs}"
                 )
             return self.encoder_output_to_scores(
-                latent_state,
+                state,
                 source_seq,
                 target_output_indcs
             )
@@ -282,7 +283,7 @@ class Seq2SlateTransformerModel(nn.Module):
 
     def _rank(
         self,
-        latent_state: torch.Tensor,
+        state: torch.Tensor,
         source_seq: torch.Tensor,
         target_seq_len: int,
         greedy: bool
@@ -314,13 +315,13 @@ class Seq2SlateTransformerModel(nn.Module):
             - :func:`_autoregressive_decoding`: Pick an item in autoregressive way.
 
         Args:
-            latent_state (torch.Tensor): Current latent state.
+            state (torch.Tensor): Current latent state.
             source_seq (torch.Tensor): Featurewise source sequence.
             target_seq_len (int): Length of the given target sequence.
             greedy (bool): Greedily rank the items.
 
         Shape:
-            - latent_state: :math:`(B, H)`
+            - state: :math:`(B, H)`
             - source_seq: :math:`(B, S, C)`
 
         Notations:
@@ -347,13 +348,13 @@ class Seq2SlateTransformerModel(nn.Module):
         featurewise_seq[:, 2:, :] = source_seq
         # Obtain the latent memory states {e_i}^source_seq_len of the source sequence
         # memory shape: batch_size, source_seq_len, dim_model
-        memory = self.encode(latent_state, source_seq)
+        memory = self.encode(state, source_seq)
 
         if self.output_arch == Seq2SlateOutputArch.FRECHET_SORT and greedy:
             # Greedy decoding but not in the autoregressive way i.e. we decode
             # entire sequence at one decoder step
             target_output_indcs, ordered_per_item_probas = self._greedy_decoding(
-                latent_state, memory, featurewise_seq, target_seq_len
+                state, memory, featurewise_seq, target_seq_len
             )
         elif self.output_arch == Seq2SlateOutputArch.ENCODER_SCORE:
             # use only the encode process one doesn't consider
@@ -367,7 +368,7 @@ class Seq2SlateTransformerModel(nn.Module):
                     "Autoregressive decoding implies greedy way to select adjacent item"
                 )
             target_output_indcs, ordered_per_item_probas = self._autoregressive_decoding(
-                latent_state, memory, featurewise_seq, target_seq_len, greedy
+                state, memory, featurewise_seq, target_seq_len, greedy
             )
         # Sequence probability is the product of each sequence's individual
         ordered_per_seq_probas = prod_probas(ordered_per_item_probas, target_output_indcs)
@@ -444,7 +445,7 @@ class Seq2SlateTransformerModel(nn.Module):
 
     def _autoregressive_decoding(
         self,
-        latent_state: torch.Tensor,
+        state: torch.Tensor,
         memory: torch.Tensor,
         featurewise_seq: torch.Tensor,
         target_seq_len: int,
@@ -460,7 +461,7 @@ class Seq2SlateTransformerModel(nn.Module):
         all permutations.
 
         Args:
-            latent_state (torch.Tensor): Current latent state.
+            state (torch.Tensor): Current latent state.
             memory (torch.Tensor): Encoder output depicts how important
                 each item in the sequence at the current time step.
             featurewise_seq (torch.Tensor): The source sequence adjusted
@@ -469,7 +470,7 @@ class Seq2SlateTransformerModel(nn.Module):
             greedy (bool): The way how to choose next candidate. :class:`athena.nn.SimplexSampler`.
 
         Shape:
-            - latent_state: :math:`(B, H)`
+            - state: :math:`(B, H)`
             - memory: :math:`(B, S, d_{model})`
             - featurewise_seq: :math:`(B, S + 2, C)`
             - output: :math:`((B, T), (B, T))`
@@ -504,7 +505,7 @@ class Seq2SlateTransformerModel(nn.Module):
             # taking higher order items' interactions into account.
             # probas shape: batch_size, step + 1, num_of_candidates
             probas = self.decode(
-                memory, latent_state, target_input_indcs, target_input_seq
+                memory, state, target_input_indcs, target_input_seq
             )
             # Choose most probable (or sampling) item at each step.
             # Obviously it could vary step to step
@@ -524,7 +525,7 @@ class Seq2SlateTransformerModel(nn.Module):
 
     def _greedy_decoding(
         self,
-        latent_state: torch.Tensor,
+        state: torch.Tensor,
         memory: torch.Tensor,
         featurewise_seq: torch.Tensor,
         target_seq_len: int
@@ -536,7 +537,7 @@ class Seq2SlateTransformerModel(nn.Module):
         of permutations.
 
         Args:
-            latent_state (torch.Tensor): Current latent state.
+            state (torch.Tensor): Current latent state.
             memory (torch.Tensor): Encoder output depicts how important
                 each item in the sequence at the current time step.
             featurewise_seq (torch.Tensor): The source sequence adjusted
@@ -544,7 +545,7 @@ class Seq2SlateTransformerModel(nn.Module):
             target_seq_len (int): Length of the target sequence.
 
         Shape:
-            - latent_state: :math:`(B, H)`
+            - state: :math:`(B, H)`
             - memory: :math:`(B, S, d_{model})`
             - featurewise_seq: :math:`(B, S + 2, C)`
             - output: :math:`((B, T), (B, T))`
@@ -573,7 +574,7 @@ class Seq2SlateTransformerModel(nn.Module):
         # each target sequnce position. We consider the current position.
         # probs shape: batch_size, num_of_candidates
         probas = self.decode(
-            memory, latent_state, target_input_indcs, target_input_seq
+            memory, state, target_input_indcs, target_input_seq
         )[:, -1, :]
 
         # arange the items in the greedy way
@@ -592,7 +593,7 @@ class Seq2SlateTransformerModel(nn.Module):
 
     def _log_probas(
         self,
-        latent_state: torch.Tensor,
+        state: torch.Tensor,
         source_seq: torch.Tensor,
         target_input_seq: torch.Tensor,
         target_input_indcs: torch.Tensor,
@@ -606,7 +607,7 @@ class Seq2SlateTransformerModel(nn.Module):
         is commonly NDCG.
 
         Args:
-            latent_state (torch.Tensor): Current latent state.
+            state (torch.Tensor): Current latent state.
             source_seq (torch.Tensor): Featurewise source sequence.
             target_input_seq (torch.Tensor): Target input sequence one passed to the docder input.
             target_input_indcs (torch.Tensor): The indices of the given target sequences.
@@ -615,7 +616,7 @@ class Seq2SlateTransformerModel(nn.Module):
             mode (str): The way how to optimize the network. Either calculate sequence or item distribution reward.
 
         Shape:
-            - latent_state: :math:`(B, H)`
+            - state: :math:`(B, H)`
             - source_seq: :math:`(B, S, C)`
             - target_input_seq: :math:`(B, T, C)`
             - target_input_indcs: :math:`(B, T)`
@@ -636,7 +637,7 @@ class Seq2SlateTransformerModel(nn.Module):
         """
         # Transform source sequence into embeddings
         # shape: batch_size, source_seq_len, dim_model
-        memory = self.encode(latent_state, source_seq)
+        memory = self.encode(state, source_seq)
         target_seq_len = target_input_seq.shape[1]
         source_seq_len = source_seq.shape[1]
         if target_seq_len > source_seq_len:
@@ -647,7 +648,7 @@ class Seq2SlateTransformerModel(nn.Module):
         # Extract the probability distribution over items
         # decoder_probs shape: batch_size, target_seq_len, num_of_candidates
         probas = self.decode(
-            memory, latent_state, target_input_indcs, target_input_seq
+            memory, state, target_input_indcs, target_input_seq
         )
         if mode == self._per_item_log_prob_dist_mode_val:
             # to prevent log(P) = -inf, clamp it with extremely small value
@@ -674,7 +675,7 @@ class Seq2SlateTransformerModel(nn.Module):
 
     def encoder_output_to_scores(
         self,
-        latent_state: torch.Tensor,
+        state: torch.Tensor,
         source_seq: torch.Tensor,
         target_output_indcs: torch.Tensor
     ) -> Seq2SlateTransformerOutput:
@@ -682,13 +683,13 @@ class Seq2SlateTransformerModel(nn.Module):
         not sorting according to the encoder scores.
 
         Args:
-            latent_state (torch.Tensor): Current latent state.
+            state (torch.Tensor): Current latent state.
             source_seq (torch.Tensor): Featurewise source sequence.
             target_output_indcs (torch.Tensor): The indicies over ones
                 the final probabilities distribution will be performed.
 
         Shape:
-            - latent_state: :math:`(B, H)`
+            - state: :math:`(B, H)`
             - source_seq: :math:`(B, S, C)`
             - target_output_indcs: :math:`(B, T)`
 
@@ -704,7 +705,7 @@ class Seq2SlateTransformerModel(nn.Module):
         """
         # encode source sequence into model memory state
         # shape: batch_size, source_seq_len, dim_model
-        memory = self.encode(latent_state, source_seq)
+        memory = self.encode(state, source_seq)
         # order the memory scores according to the target_output_indcs
         # excluding starting and padding symbols
         # shape: batch_size, target_seq_len, dim_model
@@ -721,7 +722,7 @@ class Seq2SlateTransformerModel(nn.Module):
             encoder_scores=encoder_scores
         )
 
-    def encode(self, latent_state: torch.Tensor, source_seq: torch.Tensor) -> torch.Tensor:
+    def encode(self, state: torch.Tensor, source_seq: torch.Tensor) -> torch.Tensor:
         r"""
         Seq2Slate encoding process. The process consists of two steps:
 
@@ -734,11 +735,11 @@ class Seq2SlateTransformerModel(nn.Module):
         representation :math:`\{e_i\}_{i=1}^n`.
 
         Args:
-            latent_state (torch.Tensor): Current latent state.
+            state (torch.Tensor): Current latent state.
             source_seq (torch.Tensor): Featurewise source sequence.
 
         Shape:
-            - latent_state: :math:`(B, H)`
+            - state: :math:`(B, H)`
             - source_seq: :math:`(B, S, C)`
             - output: :math:`(B, S, d_{model})`
 
@@ -755,24 +756,24 @@ class Seq2SlateTransformerModel(nn.Module):
         batch_size, max_source_seq_len = source_seq.shape[:2]
         # candidate_embed: batch_size, source_seq_len, dim_model/2
         candidate_embed = self.candidate_embedding(source_seq)
-        # latent_state_embed: batch_size, dim_model/2
-        latent_state_embed = self.latent_state_embedding(latent_state)
-        # transform latent_state_embed into shape: batch_size, source_seq_len, dim_model/2
-        latent_state_embed = latent_state_embed.repeat(1, max_source_seq_len).reshape(
+        # state_embed: batch_size, dim_model/2
+        state_embed = self.state_embedding(state)
+        # transform state_embed into shape: batch_size, source_seq_len, dim_model/2
+        state_embed = state_embed.repeat(1, max_source_seq_len).reshape(
             batch_size, max_source_seq_len, -1
         )
-        # Encoder input at each step is the concatenation of latent_state_embed
+        # Encoder input at each step is the concatenation of state_embed
         # and candidate_embed. The latent state is replicated at each encoder step.
         # source_state_embed shape: batch_size, source_seq_len, dim_model
         source_state_embed = torch.cat(
-            (latent_state_embed, candidate_embed), dim=2
+            (state_embed, candidate_embed), dim=2
         )
         return self.encoder(source_state_embed)
 
     def decode(
         self,
         memory: torch.Tensor,
-        latent_state: torch.Tensor,
+        state: torch.Tensor,
         target_input_indcs: torch.Tensor,
         target_input_seq: torch.Tensor
     ) -> torch.Tensor:
@@ -804,13 +805,13 @@ class Seq2SlateTransformerModel(nn.Module):
         Args:
             memory (torch.Tensor): Encoder output depicts how important each item
                 in the sequence at the current time step.
-            latent_state (torch.Tensor): Current latent state.
+            state (torch.Tensor): Current latent state.
             target_input_indcs (torch.Tensor): The indices of the given target sequences.
             target_input_seq (torch.Tensor): Target input sequence one passed to the docder input.
 
         Shape:
             - memory: :math:`(B, S, d_{model})`
-            - latent_state: :math:`(B, H)`
+            - state: :math:`(B, H)`
             - target_input_indcs: :math:`(B, T)`
             - target_input_seq: :math:`(B, T, d_{model})`
             - output: :math:`(B, T, C)`
@@ -853,16 +854,16 @@ class Seq2SlateTransformerModel(nn.Module):
             candidate_embed = self.candidate_embedding(target_input_seq)
             # Embed latent state vector in purpose to combine it further
             # shape: batch_size, dim_model/2
-            latent_state_embed = self.latent_state_embedding(latent_state)
+            state_embed = self.state_embedding(state)
             # Replicate latent state for every open position to choose a candidate
             # shape: batch_size, target_seq_len, dim_model/2
-            latent_state_embed = latent_state_embed.repeat(1, target_seq_len).reshape(
+            state_embed = state_embed.repeat(1, target_seq_len).reshape(
                 batch_size, target_seq_len, -1
             )
             # Add position vectors to the embeddings
             # shape: batch_size, target_seq_len, dim_model
             target_embed = self.vl_positional_encoding(
-                torch.cat((latent_state_embed, candidate_embed), dim=2)
+                torch.cat((state_embed, candidate_embed), dim=2)
             )
             # Mask already choosen items
             # target2target_mask shape: batch_size * nheads, target_seq_len, target_seq_len
@@ -883,7 +884,7 @@ class Seq2SlateTransformerModel(nn.Module):
 class Seq2SlateNetwork(BaseModel, LoggerMixin):
     __hash__ = param_hash
 
-    latent_state_dim: int
+    state_dim: int
     candidate_dim: int
     nlayers: int
     dim_model: int
@@ -901,7 +902,7 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
 
     def input_prototype(self) -> PreprocessedRankingInput:
         return PreprocessedRankingInput.from_tensors(
-            state=torch.randn(1, self.latent_state_dim),
+            state=torch.randn(1, self.state_dim),
             source_seq=torch.randn(1, self.max_source_seq_len, self.candidate_dim),
             target_input_seq=torch.randn(1, self.max_target_seq_len, self.candidate_dim),
             target_output_seq=torch.randn(1, self.max_target_seq_len, self.candidate_dim),
@@ -918,8 +919,8 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
         if mode == Seq2SlateMode.RANK_MODE:
             result: Seq2SlateTransformerOutput = self.seq2slate(
                 mode=mode.value,
-                latent_state=input.latent_state.repr,
-                source_seq=input.source_seq.repr,
+                state=input.state.dense_features,
+                source_seq=input.source_seq.dense_features,
                 target_seq_len=target_seq_len,
                 greedy=greedy
             )
@@ -944,9 +945,9 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
                 )
             result: Seq2SlateTransformerOutput = self.seq2slate(
                 mode=mode.value,
-                latent_state=input.latent_state.repr,
-                source_seq=input.source_seq.repr,
-                target_input_seq=input.target_input_seq.repr,
+                state=input.state.dense_features,
+                source_seq=input.source_seq.dense_features,
+                target_input_seq=input.target_input_seq.dense_features,
                 target_input_indcs=input.target_input_indcs,
                 target_output_indcs=input.target_output_indcs
             )
@@ -962,8 +963,8 @@ class Seq2SlateNetwork(BaseModel, LoggerMixin):
                 )
             result: Seq2SlateTransformerOutput = self.seq2slate(
                 mode=mode.value,
-                latent_state=input.latent_state.repr,
-                source_seq=input.source_seq.repr,
+                state=input.state.dense_features,
+                source_seq=input.source_seq.dense_features,
                 target_output_indcs=input.target_output_indcs
             )
             return RankingOutput(encoder_scores=result.encoder_scores)
@@ -980,11 +981,11 @@ class Seq2SlateTransformerNetwork(Seq2SlateNetwork):
 
     nheads: int
     dim_feedforward: int
-    latent_state_embed_dim: Optional[int] = None
+    state_embed_dim: Optional[int] = None
 
     def _build_model(self) -> Seq2SlateTransformerModel:
         return Seq2SlateTransformerModel(
-            latent_state_dim=self.latent_state_dim,
+            state_dim=self.state_dim,
             candidate_dim=self.candidate_dim,
             nlayers=self.nlayers,
             nheads=self.nheads,
@@ -994,5 +995,5 @@ class Seq2SlateTransformerNetwork(Seq2SlateNetwork):
             max_target_seq_len=self.max_target_seq_len,
             output_arch=self.output_arch,
             temperature=self.temperature,
-            latent_state_embed_dim=self.latent_state_embed_dim
+            state_embed_dim=self.state_embed_dim
         )
