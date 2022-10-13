@@ -1,17 +1,20 @@
-import torch
-import torch.nn as nn
-
 from typing import List, Optional, Tuple
 
-import athena.core.dtypes as adt
+import torch
+import torch.nn as nn
 import torch.nn.functional as F
+
+import athena.core.dtypes as adt
 from athena.core.dataclasses import field
-from athena.trainers import AthenaLightening, STEP_OUTPUT
-from athena.models import Seq2SlateTransformerNetwork
-from athena.optim import OptimizerRoster
+from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode
 from athena.core.parameters import Seq2SlateParams
 from athena.evaluation.rl.eval_on_batch import EvaluationOnBatch
-from athena.nn.rl.variance_reduction import BaselineNetwork, ips_blur, ips_ratio
+from athena.metrics.roster import MetricRoster
+from athena.models import Seq2SlateTransformerNetwork
+from athena.nn.rl.variance_reduction import (BaselineNetwork, ips_blur,
+                                             ips_ratio)
+from athena.optim import OptimizerRoster
+from athena.trainers import STEP_OUTPUT, AthenaLightening
 
 
 class Seq2SlateTrainer(AthenaLightening):
@@ -19,6 +22,7 @@ class Seq2SlateTrainer(AthenaLightening):
         self,
         reinforce_network: Seq2SlateTransformerNetwork,
         params: Seq2SlateParams = field(default_factory=Seq2SlateParams),
+        metric: MetricRoster = field(default_factory=MetricRoster.default_ndcg),
         baseline_network: Optional[BaselineNetwork] = None,
         baseline_warmup_batches: int = 0,
         policy_optimizer: OptimizerRoster = field(default_factory=OptimizerRoster.default),
@@ -38,6 +42,9 @@ class Seq2SlateTrainer(AthenaLightening):
         self.reinforce_optimizer = policy_optimizer
         if self.baseline:
             self.baseline_optimizer = baseline_optimizer
+
+        if self.params.on_policy:
+            self.ranking_measure = metric
 
         self.automatic_optimization = False
 
@@ -65,7 +72,7 @@ class Seq2SlateTrainer(AthenaLightening):
         if type(batch) is not adt.PreprocessedRankingInput:
             raise TypeError(f"Batch has to be of type {adt.PreprocessedRankingInput}; got {type(batch)}")
 
-        batch_size = batch.latent_state.repr.shape[0]
+        batch_size = batch.state.dense_features.shape[0]
 
         reward = batch.slate_reward
         if reward is None:
@@ -189,6 +196,36 @@ class Seq2SlateTrainer(AthenaLightening):
 
         return eob_greedy, eob_nongreedy
 
+    def on_train_batch_start(self, batch: adt.PreprocessedRankingInput, batch_idx: int) -> Optional[int]:
+        if self.params.on_policy:
+            with torch.no_grad():
+                num_of_candidates = self.reinforce.max_source_seq_len
+                model_propensity, model_actions = _rank_on_policy(
+                    self.reinforce, batch, num_of_candidates, False
+                )
+                gain = torch.arange(num_of_candidates, 0, -1) * torch.ones_like(model_actions)
+                ordered_scores = gain.gather(1, model_actions)
+
+                logged_indcs = batch.target_output_indcs - 2
+                positional_reward = batch.position_reward
+                true_scores = positional_reward.gather(1, logged_indcs)
+
+                slate_reward = self.ranking_measure(true_scores, ordered_scores).unsqueeze(1)
+
+            on_policy_batch = adt.PreprocessedRankingInput.from_input(
+                state=batch.state.dense_features,
+                candidates=batch.source_seq.dense_features,
+                device=batch.state.dense_features.device,
+                actions=model_actions,
+                logged_propensities=model_propensity,
+                slate_reward=-slate_reward
+            )
+
+            for attr in dir(on_policy_batch):
+                if not attr.startswith("__") and not callable(getattr(on_policy_batch, attr)):
+                    setattr(batch, attr, getattr(on_policy_batch, attr))
+        super().on_train_batch_start(batch, batch_idx)
+
     def validation_epoch_end(self, outputs: Optional[List[Tuple[EvaluationOnBatch, EvaluationOnBatch]]]) -> None:
         if self.cpe:
             if outputs is None:
@@ -206,3 +243,20 @@ class Seq2SlateTrainer(AthenaLightening):
                 eobs_greedy=eobs_greedy,
                 eobs_nongreedy=eob_nongreedy
             )
+
+
+@torch.no_grad()
+def _rank_on_policy(
+    reinforce: Seq2SlateTransformerNetwork,
+    batch: adt.PreprocessedRankingInput,
+    num_of_candidates: int,
+    greedy: bool
+) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+    reinforce.eval()
+    ordered_output: adt.RankingOutput = reinforce(
+        batch, mode=Seq2SlateMode.RANK_MODE, target_seq_len=num_of_candidates, greedy=greedy
+    )
+    ordered_slate_proba = ordered_output.ordered_per_seq_probas
+    ordered_items = ordered_output.ordered_target_out_indcs - 2
+    reinforce.train()
+    return ordered_slate_proba, ordered_items
