@@ -1,14 +1,46 @@
 import abc
+from typing import Callable, Dict, Generator, List, Optional, Tuple, Union
+
+import pandas as pd
 import pytorch_lightning as pl
-from typing import Dict, List, Optional, Tuple, Union
+import torch
+from petastorm.pytorch import DataLoader, decimal_friendly_collate
+
+from athena.core.dtypes.base import TensorDataClass
 from athena.core.dtypes.dataset import Dataset, TableSpec
 from athena.core.dtypes.rl.options import RLOptions
-
 from athena.core.parameters import NormalizationData
 from athena.data.data_extractor import DataExtractor
 from athena.data.fap.fapper import FAPper
 from athena.preprocessing.batch_preprocessor import BatchPreprocessor
-from athena.preprocessing.transforms import Transformation, Compose
+from athena.preprocessing.transforms import Compose, Transformation
+
+DATA_ITER_STEP = Generator[TensorDataClass, None, None]
+
+
+def closing_iter(dataloader: DataLoader) -> DATA_ITER_STEP:
+    yield from dataloader
+    dataloader.__exit__(None, None, None)
+
+
+def collate_and_preprocess(
+    batch_preprocessor: BatchPreprocessor, use_gpu: bool
+) -> Callable[[List[Dict]], torch.Tensor]:
+    def collate_fn(batch_list: List[Dict]) -> torch.Tensor:
+        batch = decimal_friendly_collate(batch_list)
+        preprocessed_batch: torch.Tensor = batch_preprocessor(batch)
+        if use_gpu:
+            preprocessed_batch = preprocessed_batch.cuda()
+        return preprocessed_batch
+    return collate_fn
+
+
+def arbitrary_transform(
+    transformation: Union[Compose, Transformation]
+) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    def transfrom_fn(table: pd.DataFrame) -> pd.DataFrame:
+        return transformation(table)
+    return transfrom_fn
 
 
 class AthenaDataModule(pl.LightningDataModule):
@@ -34,7 +66,7 @@ class AthenaDataModule(pl.LightningDataModule):
 
     @property
     @abc.abstractmethod
-    def should_generate_eval_dataset(self) -> bool:
+    def should_generate_eval_data(self) -> bool:
         pass
 
     @abc.abstractmethod

@@ -1,19 +1,19 @@
 import pickle
-import torch
-import pandas as pd
-from typing import Any, Callable, Dict, Generator, NamedTuple, Optional, Tuple, List, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
-from petastorm import make_batch_reader, TransformSpec
-from petastorm.pytorch import DataLoader, decimal_friendly_collate
+from petastorm import TransformSpec, make_batch_reader
+from petastorm.pytorch import DataLoader
+
 from athena.core.dtypes import Dataset, TableSpec
-from athena.core.dtypes.options import RLOptions, ReaderOptions, ResourceOptions
-from athena.data.athena_datamodule import AthenaDataModule
-from athena.data.data_extractor import DataExtractor
+from athena.core.dtypes.options import (ReaderOptions, ResourceOptions,
+                                        RLOptions)
 from athena.core.parameters import NormalizationData
+from athena.data.athena_datamodule import (DATA_ITER_STEP, AthenaDataModule,
+                                           arbitrary_transform, closing_iter,
+                                           collate_and_preprocess)
+from athena.data.data_extractor import DataExtractor
 from athena.data.fap.fapper import FAPper
 from athena.model_managers.manager import ModelManager
-from athena.preprocessing.batch_preprocessor import BatchPreprocessor
-from athena.preprocessing.transforms import Transformation, Compose
 
 
 class TrainEValSampleRanges(NamedTuple):
@@ -144,7 +144,7 @@ class ManualDataModule(AthenaDataModule):
             normalization_dict = self.run_feature_identification(self.input_table_spec)
         else:
             normalization_dict = pickle.loads(self.saved_setup_data[key])
-        evaluate = self.should_generate_eval_dataset
+        evaluate = self.should_generate_eval_data
         sample_range = get_sample_range(self.input_table_spec, evaluate)
         train_data = self.query_data(
             input_table_spec=self.input_table_spec,
@@ -164,7 +164,7 @@ class ManualDataModule(AthenaDataModule):
         self.setup_data = self._pickle_setup_data(normalization_dict, train_data, eval_data)
         return self.setup_data
 
-    def setup(self) -> None:
+    def setup(self, stage: Optional[str] = None) -> None:
         if self._setup_done:
             return
 
@@ -203,45 +203,20 @@ class ManualDataModule(AthenaDataModule):
             batch_size=reader_options.minibatch_size,
             collate_fn=collate_and_preprocess(batch_preprocessor=batch_preprocessor, use_gpu=False)
         )
-        return _closing_iter(dataloader)
+        return closing_iter(dataloader)
 
-    def train_dataloader(self) -> DataLoader:
+    def train_dataloader(self) -> DATA_ITER_STEP:
         self._num_train_data_loader_calls += 1
         return self.get_dataloader(self.train_data, identity=f"train_{self._num_train_data_loader_calls}")
 
-    def test_dataloader(self) -> Optional[DataLoader]:
+    def test_dataloader(self) -> Optional[DATA_ITER_STEP]:
         self._num_test_data_loader_calls += 1
         return self._get_eval_data(identity=f"test_{self._num_test_data_loader_calls}")
 
-    def val_dataloader(self) -> Optional[DataLoader]:
+    def val_dataloader(self) -> Optional[DATA_ITER_STEP]:
         self._num_val_data_loader_calls += 1
         return self._get_eval_data(identity=f"test_{self._num_val_data_loader_calls}")
 
-    def _get_eval_data(self, identity: str) -> Optional[DataLoader]:
+    def _get_eval_data(self, identity: str) -> Optional[DATA_ITER_STEP]:
         eval_data = self.eval_data
         return None if not eval_data else self.get_dataloader(eval_data, identity)
-
-
-def _closing_iter(dataloader: DataLoader) -> Generator[Union[Dict, List, Any], None, None]:
-    yield from dataloader
-    dataloader.__exit__(None, None, None)
-
-
-def collate_and_preprocess(
-    batch_preprocessor: BatchPreprocessor, use_gpu: bool
-) -> Callable[[List[Dict]], torch.Tensor]:
-    def collate_fn(batch_list: List[Dict]) -> torch.Tensor:
-        batch = decimal_friendly_collate(batch_list)
-        preprocessed_batch: torch.Tensor = batch_preprocessor(batch)
-        if use_gpu:
-            preprocessed_batch = preprocessed_batch.cuda()
-        return preprocessed_batch
-    return collate_fn
-
-
-def arbitrary_transform(
-    transformation: Union[Compose, Transformation]
-) -> Callable[[pd.DataFrame], pd.DataFrame]:
-    def transfrom_fn(table: pd.DataFrame) -> pd.DataFrame:
-        return transformation(table)
-    return transfrom_fn
