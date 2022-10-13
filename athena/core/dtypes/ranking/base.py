@@ -21,7 +21,7 @@ class PreprocessedRankingInput(TensorDataClass):
 
         1. State representation. State normally is used in RL
         to represent action independent observable space relatively
-        to the agent. As to the ranking problem there is no 
+        to the agent. As to the ranking problem there is no
         such space, but we can reformulate it the problem as user
         specific problem, by adding user vector.
 
