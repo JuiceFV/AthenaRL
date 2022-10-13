@@ -2,11 +2,12 @@ import abc
 from typing import Dict
 
 import torch
+
+from athena import lazy_property
+from athena.core.dtypes.results import TrainingReport
 from athena.core.logger import LoggerMixin
-from athena.core.monitors import CompositeMonitor
-from athena.core.monitors import IntervalAggMonitor
-from athena.core.monitors import OnEpochEndMonitor
-from athena.core.monitors import ValueListMonitor
+from athena.core.monitors import (CompositeMonitor, IntervalAggMonitor,
+                                  OnEpochEndMonitor, ValueListMonitor)
 from athena.core.tracker import TrackableMixin, Tracker
 
 
@@ -16,7 +17,6 @@ class ReporterBase(CompositeMonitor, LoggerMixin):
         value_list_monitors: Dict[str, ValueListMonitor],
         aggregating_monitors: Dict[str, IntervalAggMonitor],
     ) -> None:
-        super().__init__()
         on_epoch_end_monitor = OnEpochEndMonitor(self.flush)
         self._value_list_monitors = value_list_monitors
         self._aggregating_monitors = aggregating_monitors
@@ -42,7 +42,7 @@ class ReporterBase(CompositeMonitor, LoggerMixin):
         return val
 
     @abc.abstractmethod
-    def training_report(self):
+    def training_report(self) -> TrainingReport:
         pass
 
 
@@ -52,7 +52,6 @@ class _ReporterTrackable(TrackableMixin):
         super().__init__()
         self.add_tracker(reporter)
 
-    @property
+    @lazy_property
     def _trackable_val_types(self) -> Dict[str, torch.Tensor]:
-        # TODO: make lazy_property
         return {field: torch.Tensor for field in self._reporter.get_trackable_fields()}
