@@ -20,6 +20,25 @@ Base
     :template: classtemplate.rst
 
     TensorDataClass
+    Ftype
+    ModelFeatureConfig
+    IDMappingConfig
+    IDScoreListFeatureConfig
+    IDListFeatureConfig
+    Feature
+
+Dataset
+-------
+
+.. currentmodule:: athena.core.dtypes.dataset
+
+.. autosummary::
+    :toctree: generated
+    :nosignatures:
+    :template: classtemplate.rst
+
+    Dataset
+    TableSpec
 
 Preprocessing
 -------------
