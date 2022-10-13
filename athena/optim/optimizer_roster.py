@@ -8,8 +8,9 @@ their parameters' type like `tuple` and `None`.
 """
 from typing import Any, Dict, Iterable, List, Union
 
-import athena.optim.uninferrable_optimizers as cbi
 import torch
+
+import athena.optim.uninferrable_optimizers as cbi
 from athena.core.config import create_config_class, param_hash
 from athena.core.registry import DiscriminatedUnion
 from athena.optim.optimizer import OptimizerConfig
@@ -39,7 +40,7 @@ for opt_name in retrieve_torch_optimizers():
     else:
         opt_class = getattr(torch.optim, opt_name)
 
-        # Create a class on is instantiate from OptimizerConfig
+        # Create a class one is instantiated from OptimizerConfig
         # in purpose to register it in the roster
         subclass = type(
             opt_name,

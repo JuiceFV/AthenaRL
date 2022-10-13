@@ -2,6 +2,7 @@ from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
+
 from athena.core.dtypes.ranking.seq2slate import (Seq2SlateMode,
                                                   Seq2SlateOutputArch)
 from athena.models.base import BaseModel
@@ -79,7 +80,7 @@ class Seq2SlateWithPreprocessor(nn.Module):
         max_source_seq_len = preprocessed_candidates.shape[1]
         output = self.model(
             mode=Seq2SlateMode.RANK_MODE.value,
-            latent_state=preprocessed_state,
+            state=preprocessed_state,
             source_seq=preprocessed_candidates,
             target_seq_len=max_source_seq_len,
             greedy=self.greedy
@@ -88,7 +89,10 @@ class Seq2SlateWithPreprocessor(nn.Module):
 
     def can_be_traced(self) -> bool:
         output_arch = self.model.output_arch
-        return output_arch == Seq2SlateOutputArch.ENCODER_SCORE or (output_arch == Seq2SlateOutputArch.FRECHET_SORT and self.greedy)
+        return (
+            output_arch == Seq2SlateOutputArch.ENCODER_SCORE
+            or (output_arch == Seq2SlateOutputArch.FRECHET_SORT and self.greedy)
+        )
 
 
 class Seq2SlatePredictorWrapper(torch.jit.ScriptModule):
