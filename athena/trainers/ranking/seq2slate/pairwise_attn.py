@@ -1,16 +1,18 @@
 from typing import Generator, Optional
-import torch
+
 import numpy as np
+import torch
 import torch.nn as nn
+from sklearn.metrics import dcg_score, ndcg_score
+
 from athena.core.dataclasses import field
+from athena.core.dtypes import PreprocessedRankingInput
 from athena.core.dtypes.ranking.base import RankingOutput
 from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode
 from athena.models import Seq2SlateTransformerNetwork
 from athena.optim import OptimizerRoster
 from athena.trainers import AthenaLightening
 from athena.trainers.athena_lightening import STEP_OUTPUT
-from athena.core.dtypes import PreprocessedRankingInput
-from sklearn.metrics import dcg_score, ndcg_score
 
 
 class Seq2SlatePairwiseAttnTrainer(AthenaLightening):

@@ -3,12 +3,14 @@ from typing import Generator, Optional, Union
 
 import pytorch_lightning as pl
 import torch
-from athena.core.dtypes.base import TensorDataClass
-from athena.core.logger import LoggerMixin
 from pytorch_lightning.loggers.logger import DummyExperiment, LoggerCollection
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from typing_extensions import final
+
+from athena import lazy_property
+from athena.core.dtypes.base import TensorDataClass
+from athena.core.logger import LoggerMixin
 from athena.core.tensorboard import SummaryWriterContext
 from athena.report.base import ReporterBase
 
@@ -122,9 +124,8 @@ class AthenaLightening(pl.LightningModule, LoggerMixin):
         opt = super().optimizers(use_pl_optimizer)
         return opt if isinstance(opt, list) else [opt]
 
-    @property
+    @lazy_property
     def _num_opt_steps(self) -> int:
-        # TODO: replace with lazy property https://stackoverflow.com/a/6849299/11748947
         return len(self.configure_optimizers())
 
     @final
