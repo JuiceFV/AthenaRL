@@ -1,6 +1,8 @@
 from typing import Dict
+
 from athena.core.config import param_hash
 from athena.core.dataclasses import dataclass, field
+from athena.core.dtypes.rl.options import RLOptions
 from athena.core.parameters import NormalizationData, NormalizationKey
 from athena.model_managers.seq2slate_base import Seq2SlateBase
 from athena.net_builder.ranking.seq2slate import Seq2SlateRanking
@@ -26,7 +28,7 @@ class Seq2Slate(Seq2SlateBase):
     trainer_params: Seq2SlateTrainerParameters = field(
         default_factory=Seq2SlateTrainerParameters
     )
-    use_baseline: bool = True
+    use_baseline_function: bool = True
     baseline_warmup_batches: int = 0
 
     def __post_init_post_parse__(self):
@@ -35,9 +37,14 @@ class Seq2Slate(Seq2SlateBase):
             raise ValueError(f"Slate size is invalid ({self.slate_size})")
         if self.num_of_candidates <= 0:
             raise ValueError(f"Number of exploring candidates is invalid ({self.num_of_candidates})")
+        if not self.use_baseline_function:
+            self.warning("Basline function isn't in use, so baseline_warmup_batches is set to be 0.")
+            self.baseline_warmup_batches = 0
 
     def build_trainer(
         self,
+        use_gpu: bool,
+        rl_options: RLOptions,
         normalization_dict: Dict[str, NormalizationData],
     ) -> Seq2SlateTrainer:
         net_builder: Seq2SlateRanking = self.net_builder.value
@@ -47,28 +54,29 @@ class Seq2Slate(Seq2SlateBase):
         candidate_dim = get_normalization_data_dim(
             normalization_dict[NormalizationKey.CANDIDATE].dense_normalization_params
         )
+
+        if not (state_dim and candidate_dim):
+            raise RuntimeError(
+                f"Unable to infer metadata either from state ({state_dim}) or candidate ({candidate_dim})."
+            )
+
         seq2slate_network = net_builder.build_slate_ranking_network(
-            latent_state_dim=state_dim,
+            state_dim=state_dim,
             candidate_dim=candidate_dim,
             num_of_candidates=self.num_of_candidates,
             slate_size=self.slate_size
         )
 
-        # FIXME: Baseline could be any function which reduces
-        # variance that implies faster loss convergance. It woths
-        # to give a user ability to set this function manually.
-        if self.use_baseline:
-            baseline_network = BaselineNetwork(
-                latent_state_dim=state_dim,
+        if self.use_baseline_function:
+            baseline = BaselineNetwork(
+                state_dim=state_dim,
                 dim_feedforward=net_builder.transformer.dim_feedforward,
                 nlayers=net_builder.transformer.nlayers
             )
-        else:
-            self.baseline_warmup_batches = 0
 
         return Seq2SlateTrainer(
             reinforce_network=seq2slate_network,
-            baseline_network=baseline_network,
+            baseline_network=baseline,
             baseline_warmup_batches=self.baseline_warmup_batches,
             **self.trainer_params.asdict()
         )
@@ -83,6 +91,6 @@ class Seq2Slate(Seq2SlateBase):
         net_builder: Seq2SlateRanking = self.net_builder.value
         return net_builder.build_serving_module(
             trainer_module.reinforce,
-            normalization_dict[NormalizationKey.STATE].dense_normalization_params,
-            normalization_dict[NormalizationKey.CANDIDATE].dense_normalization_params
+            normalization_dict[NormalizationKey.STATE],
+            normalization_dict[NormalizationKey.CANDIDATE]
         )

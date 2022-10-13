@@ -13,7 +13,9 @@ from athena.data.data_extractor import DataExtractor
 from athena.data.fap.fapper import FAPper
 from athena.data.manual_datamodule import ManualDataModule
 from athena.model_managers.manager import ModelManager
-from athena.preprocessing.transforms import VectorPadding
+from athena.preprocessing.batch_preprocessor import Seq2SlateBatchPreprocessor
+from athena.preprocessing.preprocessor import Preprocessor
+from athena.preprocessing.transforms.petastorm import VectorPadding
 
 
 @dataclass
@@ -32,7 +34,7 @@ class Seq2SlateBase(ModelManager):
         self.evaluate = self.trainer_params.cpe
 
     @property
-    def should_generate_eval_dataset(self) -> bool:
+    def should_generate_eval_data(self) -> bool:
         return self.evaluate
 
     def get_data_module(
@@ -60,8 +62,8 @@ class Seq2SlateBase(ModelManager):
 
 class Seq2SlateDataModule(ManualDataModule):
     @property
-    def should_generate_eval_dataset(self) -> bool:
-        return self.model_manager.should_generate_eval_dataset
+    def should_generate_eval_data(self) -> bool:
+        return self.model_manager.should_generate_eval_data
 
     def run_feature_identification(self, input_table_spec: TableSpec) -> Dict[str, NormalizationData]:
         manager: Seq2SlateBase = self.model_manager
@@ -108,3 +110,15 @@ class Seq2SlateDataModule(ManualDataModule):
         candidate_dim = len(self.candidate_normalization_dict.dense_normalization_params)
         max_length = max_seq_len * candidate_dim
         return VectorPadding(keys=keys, max_lengths=[max_length, max_length])
+
+    def build_batch_preprocessor(self) -> Seq2SlateBatchPreprocessor:
+        candidate_dim = len(self.candidate_normalization_dict.dense_normalization_params)
+        state_preprocessor = Preprocessor(self.state_normalization_dict.dense_normalization_params)
+        candidate_preprocessor = Preprocessor(self.candidate_normalization_dict.dense_normalization_params)
+        return Seq2SlateBatchPreprocessor(
+            num_of_candidates=self.model_manager.num_of_candidates,
+            candidate_dim=candidate_dim,
+            state_preprocessor=state_preprocessor,
+            candidate_preprocessor=candidate_preprocessor,
+            on_policy=self.model_manager.trainer_params.params.on_policy
+        )
