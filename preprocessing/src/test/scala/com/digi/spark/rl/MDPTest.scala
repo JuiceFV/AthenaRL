@@ -67,7 +67,6 @@ class MDPTest extends PiplineTester {
                 "metrics"
             )
         rl_input.createOrReplaceTempView(config.inputTableName)
-        println(rl_input.count())
 
         MDP.run(sqlContext, config)
 

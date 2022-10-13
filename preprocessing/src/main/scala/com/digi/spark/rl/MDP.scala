@@ -138,6 +138,10 @@ case class MDPConfiguration(
   *     input table is sub-sampled states will be missing. This column allows us
   *     to know the derivative (i.e. approach rate) which can be used to adjust
   *     the discount factor.
+  *
+  * This operator is also suitable for the Reinforcement Learning For Ranking
+  * (RL4R) problem. In case RL is applied to the ranking we consider one additional
+  * variable - sequence of documents which must be aranged in the optimal way.
   */
 object MDP {
   private val logger = LoggerFactory.getLogger(this.getClass.getName);
