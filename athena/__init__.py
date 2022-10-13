@@ -1,3 +1,5 @@
+from typing import Any, Callable, Optional
+
 import torch
 
 from athena.version import __version__ as __version__  # noqa
@@ -47,3 +49,18 @@ def gather(data: torch.Tensor, indices_2d: torch.Tensor) -> torch.Tensor:
         indices_2d.flatten(),
     ].view(batch_size, indices_len, data_dim)
     return output
+
+
+class lazy_property:
+
+    def __init__(self, retreiver: Callable[[Optional[object]], Any]) -> None:
+        self._retreiver = retreiver
+        self.__doc__ = retreiver.__doc__
+        self.__name__ = retreiver.__name__
+
+    def __get__(self, __o: Optional[object]) -> Optional[Any]:
+        if __o is None:
+            return None
+        value = self._retreiver(__o)
+        setattr(__o, self.__name__, value)
+        return value
