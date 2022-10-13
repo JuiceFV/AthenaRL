@@ -1,22 +1,24 @@
 from typing import Optional
+
 import torch
 import torch.nn as nn
+
 import athena.core.dtypes as adt
 
 
 class BaselineNetwork(nn.Module):
-    def __init__(self, latent_state_dim: int, dim_feedforward: int, nlayers: int) -> None:
+    def __init__(self, state_dim: int, dim_feedforward: int, nlayers: int) -> None:
         super().__init__()
-        layers = [nn.Linear(latent_state_dim, dim_feedforward), nn.ReLU()]
+        layers = [nn.Linear(state_dim, dim_feedforward), nn.ReLU()]
         if nlayers < 1:
             raise ValueError("Zero-layer perceptron? are you fkn kidding me?")
         for _ in range(nlayers - 1):
-            layers.extend([nn.Linear(latent_state_dim, dim_feedforward), nn.ReLU()])
+            layers.extend([nn.Linear(dim_feedforward, dim_feedforward), nn.ReLU()])
         layers.append(nn.Linear(dim_feedforward, 1))
         self.mlp = nn.Sequential(*layers)
 
     def forward(self, input: adt.PreprocessedRankingInput) -> torch.Tensor:
-        x = input.latent_state.repr
+        x = input.state.dense_features
         return self.mlp(x)
 
 
@@ -43,4 +45,6 @@ def ips_blur(importance_weights: torch.Tensor, ips_blur: Optional[adt.IPSBlur]) 
     if ips_blur.blur_method == adt.IPSBlurMethod.UNIVERSAL:
         return torch.clamp(importance_weights, 0, ips_blur.blur_max)
     elif ips_blur.blur_method == adt.IPSBlurMethod.AGGRESSIVE:
-        return torch.where(importance_weights > ips_blur.blur_max, torch.zeros_like(importance_weights), importance_weights)
+        return torch.where(
+            importance_weights > ips_blur.blur_max, torch.zeros_like(importance_weights), importance_weights
+        )
