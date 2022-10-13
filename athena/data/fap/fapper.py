@@ -1,10 +1,12 @@
 import abc
+from typing import Dict, Union
+
 import pandas as pd
 import pyspark.sql as pss
-from typing import Union, Dict
+
+from athena.core.logger import LoggerMixin
 from athena.core.parameters import NormalizationParams
 from athena.core.registry import RegistryMeta
-from athena.core.logger import LoggerMixin
 from athena.core.singleton import Singleton
 
 DataFrameUnion = Union[pss.DataFrame, pd.DataFrame]
@@ -24,7 +26,7 @@ class FAPper(LoggerMixin, metaclass=type("RegSingleton", (RegistryMeta, Singleto
         pass
 
     @abc.abstractmethod
-    def get_sequence_element_dim(self, *args, **kwargs) -> int:
+    def get_element_dim(self, *args, **kwargs) -> int:
         pass
 
     @staticmethod

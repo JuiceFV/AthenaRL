@@ -2,20 +2,20 @@ import pprint
 import random
 import string
 from typing import Dict, List, Optional, Tuple
-from athena.core.dtypes.preprocessing.options import PreprocessingOptions
-from athena.core.parameters import NormalizationParams
+
+from pyspark.sql import Column, DataFrame, SparkSession
+from pyspark.sql.functions import col, crc32, lit, udf
+from pyspark.sql.types import (ArrayType, BooleanType, FloatType, LongType,
+                               MapType)
 
 import athena.data.fap.spark_utils.common as scm
 import athena.data.fap.spark_utils.rl as srl
 from athena.core.dataclasses import dataclass
+from athena.core.dtypes.preprocessing.options import PreprocessingOptions
 from athena.core.dtypes.rl.options import RewardOptions
+from athena.core.parameters import NormalizationParams
 from athena.data.fap.config import SparkConfig
 from athena.data.fap.fapper import FAPper
-from pyspark.sql import DataFrame, SparkSession, Column
-from pyspark.sql.functions import col, crc32, lit, udf
-from pyspark.sql.types import (ArrayType, BooleanType, FloatType,
-                               LongType, MapType)
-
 from athena.preprocessing.normalization import infer_normalization
 
 MAX_UINT32 = 4294967295
@@ -46,9 +46,9 @@ class SparkFapper(FAPper):
         df = scm.query_original_table(self._session, table_name)
         return scm.get_max_sequence_length(df, col_name)
 
-    def get_sequence_element_dim(self, table_name: str, col_name: str) -> int:
+    def get_element_dim(self, table_name: str, col_name: str, is_sequence: bool = False) -> int:
         df = scm.query_original_table(self._session, table_name)
-        distinct_keys = srl.infer_trajectory_entity_names(df, col_name, is_sequence=True)
+        distinct_keys = srl.infer_trajectory_entity_names(df, col_name, is_sequence=is_sequence)
         return len(distinct_keys)
 
     def identify_normalization_params(
@@ -58,6 +58,7 @@ class SparkFapper(FAPper):
         preprocessing_options: PreprocessingOptions,
         seed: Optional[int] = None
     ) -> Dict[int, NormalizationParams]:
+        self._session = self._retrieve_session(self.config.asdict())
         df = scm.query_original_table(self._session, table_name)
         df = scm.stratified_sampling_norm_spec(df, col_name, preprocessing_options.nsamples, seed)
         rows = df.collect()
@@ -88,6 +89,7 @@ class SparkFapper(FAPper):
         metrics_col_name = reward_options.metrics_col_name
         custom_reward = reward_options.custom_reward
         gamma = reward_options.gamma
+        self._session = self._retrieve_session(self.config.asdict())
         self.info(f"Fetching and Processing {table_name} with {reward_options}")
         df = scm.query_original_table(self._session, table_name)
         df = self._reward_discount(self._session, df, reward_col_name, custom_reward, gamma)
