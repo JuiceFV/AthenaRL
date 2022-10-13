@@ -1,16 +1,17 @@
 import torch
 import torch.nn as nn
 
+
 class Embedding(nn.Module):
     r"""
     Learnable embeddings ones make model able to learn.
     Thecnically, we apply linear transformation to given
     vector projecting it to a fixed dimension :math:`e = xW^T + b`.
-    
+
     Args:
         in_features (int): The dimensionality of the original vector.
         out_features (int): The row-wise dimensionality of learnable weight matrix.
-        
+
     Example::
 
         >>> embed = Embedding(20, 30)
@@ -31,11 +32,11 @@ class Embedding(nn.Module):
 
         Args:
             input (torch.Tensor): Original vector.
-                
+
         Shape:
             - input: :math:`(B, I, H_{in})`
             - output: :math:`(B, I, H_{out})`
-              
+
         Notations:
             - :math:`B` - Batch size.
             - :math:`I` - Number of tokens in a sequence.

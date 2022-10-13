@@ -1,10 +1,10 @@
 import math
+
 import torch
 import torch.nn as nn
 import torch.nn.modules.transformer as transformer
 
 from athena.nn.arch import Embedding
-
 
 PADDING_SYMBOL = 0
 DECODER_START_SYMBOL = 1
@@ -14,7 +14,7 @@ class TransformerEmbedding(Embedding):
     r"""
     The copy of :class:`Embedding` except the projection process.
     Due to the embedding layers and last linear transformation layer
-    share the same weight matrix we scale the weights by the factor 
+    share the same weight matrix we scale the weights by the factor
     :math:`\sqrt{d_{model}}`. See details in “`Attention Is All You Need
     <https://arxiv.org/abs/1706.03762>`_” section 3.4.
 
@@ -62,7 +62,7 @@ class PTEncoder(nn.Module):
         nheads (int): Number of heads in self attention mechanism.
         nlayers (int): Number of stacked layers in the encoder.
 
-    .. important:: 
+    .. important::
 
         Note that ``dropout`` is set to 0.
 
@@ -105,7 +105,6 @@ class PTEncoder(nn.Module):
             torch.Tensor: Encoded representation of a sequence.
         """
         # Adjust the input for the PyTorch format (batch_size as second dim)
-        # TODO: replace with batch_first in the layer init
         input = input.transpose(0, 1)
         # w/o mask due to currently have no paddings
         output: torch.Tensor = self.encoder(input)
@@ -123,7 +122,7 @@ class PTDecoder(nn.Module):
         nheads (int): Number of heads in self attention mechanism.
         nlayers (int): Number of stacked layers in the encoder.
 
-    .. important:: 
+    .. important::
 
         Note that ``dropout`` is set to 0.
 
@@ -172,7 +171,6 @@ class PTDecoder(nn.Module):
             torch.Tensor: Decoded representation of a sequence.
         """
         # Adjust the input for the PyTorch format (batch_size as second dim)
-        # TODO: replace with batch_first in the layer init
         target = target.transpose(0, 1)
         mask = mask.transpose(0, 1)
         # w/o mask due to currently have no paddings
@@ -182,8 +180,8 @@ class PTDecoder(nn.Module):
 
 class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
     r"""
-    We use a bit different decoder output if vocabulary doesn't 
-    have fixed size. Model doesn't learn to point at position 
+    We use a bit different decoder output if vocabulary doesn't
+    have fixed size. Model doesn't learn to point at position
     in the vocabulary of fixed size, instead it samples the items from
     original sequence of variable length. Thus we want decoder
     outputs the attention weights instead of attention embedings.
@@ -198,10 +196,10 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
         memory_mask: torch.Tensor
     ) -> torch.Tensor:
         r"""
-        Re-implement official PyTorch transformer decoder layer. 
+        Re-implement official PyTorch transformer decoder layer.
         Normally, in the decoder layer we pass the cross-attention
         results to the feedforward to get the weights distributed over
-        overall vocabulary, afterward we normalize them within :math:`[0;1]`. 
+        overall vocabulary, afterward we normalize them within :math:`[0;1]`.
         However, some problem's definitions state that we don't have vocabulary
         of fixed size, and it changes at each time step. But the goal remains
         the same: we want to get probability distribution over vocabulary.
@@ -212,8 +210,8 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
 
             softmax\left(\frac{QK^T}{\sqrt{d_k}}\right)
 
-        For some details see “`Attention Is All You Need <https://arxiv.org/abs/1706.03762>`_” 
-        and as example check “`Seq2Slate: Re-ranking and Slate Optimization with RNNs 
+        For some details see “`Attention Is All You Need <https://arxiv.org/abs/1706.03762>`_”
+        and as example check “`Seq2Slate: Re-ranking and Slate Optimization with RNNs
         <https://arxiv.org/abs/1810.02019>`_”.
 
         Args:
@@ -255,9 +253,8 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
             memory,
             attn_mask=memory_mask
         )[1]
-        # TODO: Specify
         if attn_weights is None:
-            raise RuntimeError("No output is returned.")
+            raise RuntimeError("Set need_weights=True in PyTorch MultiheadAttention.")
         # We don't really need to optimize the attention embedding values
         # Because we already have prob dist over vocab:)
         return attn_weights
@@ -265,7 +262,7 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
 
 class PointwisePTDecoder(nn.Module):
     r"""
-    Transformer decoder implementation based on PyTorch officials with slight 
+    Transformer decoder implementation based on PyTorch officials with slight
     modification dedicated to sample variable sequence instead of overall vocabulary.
 
     Args:
@@ -276,7 +273,7 @@ class PointwisePTDecoder(nn.Module):
 
     .. important::
 
-        Feedforward network isn't in use for the last decoder layer. Therefore if decoder consists 
+        Feedforward network isn't in use for the last decoder layer. Therefore if decoder consists
         of the only layer (pointwise layer) this parameter is meaningless.
 
     Example::
@@ -327,10 +324,10 @@ class PointwisePTDecoder(nn.Module):
         target2target_mask: torch.Tensor
     ) -> torch.Tensor:
         r"""
-        Pass target sequence along with encoder latent state and produce the probability 
-        distribution over the variable sequence. For the details check “`Pointer Networks 
-        <https://arxiv.org/abs/1506.03134>`_” and *Pointer-Network Architecture for 
-        Ranking* section in the“`Seq2Slate: Re-ranking and Slate Optimization with RNNs 
+        Pass target sequence along with encoder latent state and produce the probability
+        distribution over the variable sequence. For the details check “`Pointer Networks
+        <https://arxiv.org/abs/1506.03134>`_” and *Pointer-Network Architecture for
+        Ranking* section in the“`Seq2Slate: Re-ranking and Slate Optimization with RNNs
         <https://arxiv.org/abs/1810.02019>`_”.
 
         Args:
@@ -349,7 +346,7 @@ class PointwisePTDecoder(nn.Module):
         .. note::
 
             Currently, padding and start vectors are not learnable, therefore
-            treats them as zero vectors. 
+            treats them as zero vectors.
 
         Notations:
             - :math:`B` - batch size.
@@ -364,7 +361,6 @@ class PointwisePTDecoder(nn.Module):
         batch_size, target_seq_len = target_embed.shape[:2]
 
         # Make suitable for the PyTorch
-        # TODO: replace with batch_first in the layer init
         target_embed = target_embed.transpose(0, 1)
         memory = memory.transpose(0, 1)
 
@@ -389,14 +385,14 @@ class PointwisePTDecoder(nn.Module):
 
 class VLPositionalEncoding(nn.Module):
     r"""
-    Special non-learnable positional encoding specified 
+    Special non-learnable positional encoding specified
     for the handling variable length vocabulary. To do so
-    we fold joint representation of featurewise sequence 
+    we fold joint representation of featurewise sequence
     and item positions into original dimension afterward
     project it back.
 
     Args:
-        dim_model (int): Dimension of learnable weights matrix 
+        dim_model (int): Dimension of learnable weights matrix
           :math:`W^{d_{model} \times d_*}`.
     """
 
@@ -409,7 +405,7 @@ class VLPositionalEncoding(nn.Module):
         """Encode input sequence taking item positions into account.
 
         Args:
-            input (torch.Tensor): 
+            input (torch.Tensor):
 
         Shape:
             - input: :math:`(B, S, d_{model})`
