@@ -1,9 +1,11 @@
 import json
-from dataclasses import asdict
 import logging
+from dataclasses import asdict
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+from scipy import stats
+
 import athena.core.dtypes as adt
 from athena.core.dtypes import Ftype
 from athena.core.parameters import NormalizationParams
@@ -13,7 +15,6 @@ from athena.preprocessing import (BOXCOX_MARGIN, BOXCOX_MAX_STDEV,
                                   DEFAULT_QUANTILE_K2_THRESHOLD,
                                   MIN_SAMPLES_TO_IDENTIFY)
 from athena.preprocessing.identify_types import identify_type
-from scipy import stats
 
 logger = logging.getLogger(__name__)
 

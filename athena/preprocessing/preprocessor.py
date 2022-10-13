@@ -1,28 +1,34 @@
-from typing import Dict, Optional, Tuple, List, cast
-import torch
+from typing import Dict, List, Optional, Tuple, cast
 
+import torch
 from torch.nn import Module, Parameter
-from athena.core.parameters import NormalizationParams
+
 from athena.core.dtypes import Ftype
 from athena.core.logger import LoggerMixin
+from athena.core.parameters import NormalizationParams
 from athena.preprocessing import MAX_FVALUE, MIN_FVALUE
 
 
 class Preprocessor(Module, LoggerMixin):
-    """_summary_
-
-    TODO:
-        - Add continuous action preprocessing
-    """
 
     def __init__(
-        self, normalization_params: Dict[int, NormalizationParams], device: Optional[torch.device] = None
+        self,
+        normalization_params: Dict[int, NormalizationParams],
+        device: Optional[torch.device] = None
     ) -> None:
         super().__init__()
         self.normalization_params = normalization_params
         self.fid2index, self.sorted_features, _ = self._sort_features_by_normalization()
-        # TODO: Add info regarding device we use
-        self.device = device
+
+        if device is not None:
+            self.info(f"Using predefined device: {device.type}")
+            self.device = device
+        elif torch.cuda.is_available():
+            self.info("Using GPU: Device wasn't directly passed and GPU available.")
+            self.device = torch.device("cuda")
+        else:
+            self.info("Using CPU: Device wasn't directly passed and GPU not available.")
+            self.device = torch.device("cpu")
 
         self.zero_tensor = Parameter(torch.tensor([0.0], device=self.device), requires_grad=False)
         self.one_tensor = Parameter(torch.tensor([1.0], device=self.device), requires_grad=False)
@@ -60,8 +66,6 @@ class Preprocessor(Module, LoggerMixin):
         )
 
     def forward(self, input: torch.Tensor, input_presence: torch.Tensor) -> torch.Tensor:
-        if len(self.normalization_params) == 0:
-            return input
         outputs = []
         split_input = torch.split(input, self.split_sections, dim=1)
         split_presence = torch.split(input_presence.float(), self.split_sections, dim=1)
