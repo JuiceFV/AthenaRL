@@ -1,7 +1,8 @@
-import torch
-
 from enum import Enum
 from typing import NamedTuple, Optional
+
+import torch
+
 from athena.core.enum_meta import AthenaEnumMeta
 
 
@@ -13,13 +14,13 @@ class Seq2SlateMode(Enum, metaclass=AthenaEnumMeta):
     #: Returns ranked items and their generative probabilities.
     RANK_MODE = "rank"
     #: Returns generative log probabilities of given target
-    #: sequences (used for REINFORCE training)
+    #: sequences (used for REINFORCE training).
     PER_SEQ_LOG_PROB_MODE = "per_sequence_log_prob"
     #: Returns generative log probabilties of each item in
-    #: given sequences (used in TEACHER FORCING training)
+    #: given sequences (used in TEACHER FORCING training).
     PER_ITEM_LOG_PROB_DIST_MODE = "per_item_log_prob_dist"
     #: Decoding occures only ones, thus not all permutations
-    #: are considered
+    #: are considered.
     DECODE_ONE_STEP_MODE = "decode_one_step"
     #: Produce only encoder scores.
     ENCODER_SCORE_MODE = "encoder_score_mode"
@@ -29,14 +30,14 @@ class Seq2SlateOutputArch(Enum, metaclass=AthenaEnumMeta):
     r"""
     The variation of Seq2Slate model.
     """
-    #: Only output encoder scores
+    #: Only output encoder scores.
     ENCODER_SCORE = "encoder_score"
 
-    #: A decoder outputs a sequence in an autoregressive way
+    #: A decoder outputs a sequence in an autoregressive way.
     AUTOREGRESSIVE = "autoregressive"
 
     #: Using encoder scores, a decoder outputs a sequence using
-    #: frechet sort (equivalent to iterative softmax)
+    #: frechet sort (equivalent to iterative softmax).
     FRECHET_SORT = "frechet_sort"
 
 
@@ -44,14 +45,20 @@ class Seq2SlateTransformerOutput(NamedTuple):
     r"""
     Every possible output of :class:`athena.models.ranking.seq2slate.Seq2SlateTransformerModel`
     """
-    #: Probability distribution over items for every permutation
+    #: Probability distribution over items for every permutation.
     ordered_per_item_probas: Optional[torch.Tensor]
     #: Generative probabilities of each permutation, computed as
-    #: :math:`P(s) = \prod{P(i)}`
+    #: :math:`P(s) = \prod{P(i)}`.
     ordered_per_seq_probas: Optional[torch.Tensor]
+    #: Resulted rearanged sequence.
     ordered_target_out_indcs: Optional[torch.Tensor]
+    #: Log probabilities of item to be in place.
+    #: Generally used in teacher forcing mode.
     per_item_log_probas: Optional[torch.Tensor]
+    #: Log of probability of sequence.
+    #: :math:`\log{(P(S))} = \sum{log{(P(i))}}`
     per_seq_log_probas: Optional[torch.Tensor]
+    #: Values returned by encoder block.
     encoder_scores: Optional[torch.Tensor]
 
 

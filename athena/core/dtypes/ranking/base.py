@@ -2,33 +2,11 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import torch
-from athena.core.dtypes import TensorDataClass, Feature
+
 from athena import gather
-from athena.nn.utils.transformer import subsequent_mask
+from athena.core.dtypes import Feature, TensorDataClass
 from athena.nn.arch.transformer import DECODER_START_SYMBOL
-
-
-@dataclass
-class DocSeq(TensorDataClass):
-    # Documents feature-wise represented
-    # torch.Size([batch_size, num_candidates, num_doc_features])
-    repr: torch.Tensor
-    mask: Optional[torch.Tensor] = None
-    gain: Optional[torch.Tensor] = None
-
-    def __post_init__(self):
-        if len(self.repr.shape) != 3:
-            raise ValueError(
-                f"Unexpected shape: {self.repr.shape}"
-            )
-        if self.mask is None:
-            self.mask = self.repr.new_ones(
-                self.repr.shape[:2], dtype=torch.bool
-            )
-        if self.gain is None:
-            self.gain = self.repr.new_ones(
-                self.repr.shape[:2]
-            )
+from athena.nn.utils.transformer import subsequent_mask
 
 
 @dataclass
@@ -41,9 +19,11 @@ class PreprocessedRankingInput(TensorDataClass):
         Due to ranking algorithms are so diverse there are
         only two mandatory fields, while others are Optional.
 
-        1. Latent state. ML algorithms tends to optimise some
-        weight matrices so they require embedded state representation
-        to make assumption which item should be placed next.
+        1. State representation. State normally is used in RL
+        to represent action independent observable space relatively
+        to the agent. As to the ranking problem there is no 
+        such space, but we can reformulate it the problem as user
+        specific problem, by adding user vector.
 
         2. Featurewise sequence. It's obviously that we need input
         sequence which should be ranked or re-ranked.
@@ -59,7 +39,7 @@ class PreprocessedRankingInput(TensorDataClass):
     #: Originally in ranking problem only documents
     #: are represented in the state, but RecSys may
     #: enrich it with an user representation.
-    latent_state: Feature
+    state: Feature
 
     #: Sequence feature-wise representation :math:`\{x_i\}_{i=1}^n`.
     source_seq: Feature
@@ -116,7 +96,7 @@ class PreprocessedRankingInput(TensorDataClass):
     gt_target_output_seq: Optional[Feature] = None
 
     def batch_size(self) -> int:
-        return self.latent_state.repr.size()[0]
+        return self.state.dense_features.size()[0]
 
     def __len__(self) -> int:
         return self.batch_size()
@@ -136,7 +116,7 @@ class PreprocessedRankingInput(TensorDataClass):
         """Transform the preprocessed data from raw input, s.t. it may be used in the ranking problem.
 
         Args:
-            state (torch.Tensor): Permutations at time :math:`t`.
+            state (torch.Tensor): Additional action independent representation. For example, user vector.
             candidates (torch.Tensor): Candidates for the next item to choose.
             device (torch.device): Device where computations occur.
             actions (Optional[torch.Tensor], optional): Target arangment "actions". Defaults to None.
@@ -209,7 +189,7 @@ class PreprocessedRankingInput(TensorDataClass):
 
         if position_reward is not None:
             if position_reward.shape != actions.shape:
-                raise ValueError("Positional reward and actions don't match.")
+                raise ValueError("Positional reward and actions shapes don't match.")
             position_reward = position_reward.to(device)
 
         source_input_indcs = torch.arange(num_of_candidates, device=device).repeat(batch_size, 1) + 2
@@ -317,15 +297,16 @@ class PreprocessedRankingInput(TensorDataClass):
         annotation_checking(gt_target_input_seq)
         annotation_checking(gt_target_output_seq)
 
-        state = Feature(repr=state)
-        source_seq = Feature(repr=source_seq)
-        target_input_seq = Feature(repr=target_input_seq) if target_input_seq is not None else None
-        target_output_seq = Feature(repr=target_output_seq) if target_output_seq is not None else None
-        gt_target_input_seq = Feature(repr=gt_target_input_seq) if gt_target_input_seq is not None else None
-        gt_target_output_seq = Feature(repr=gt_target_output_seq) if gt_target_output_seq is not None else None
+        state = Feature(dense_features=state)
+        source_seq = Feature(dense_features=source_seq)
+        target_input_seq = Feature(dense_features=target_input_seq) if target_input_seq is not None else None
+        target_output_seq = Feature(dense_features=target_output_seq) if target_output_seq is not None else None
+        gt_target_input_seq = Feature(dense_features=gt_target_input_seq) if gt_target_input_seq is not None else None
+        gt_target_output_seq = Feature(
+            dense_features=gt_target_output_seq) if gt_target_output_seq is not None else None
 
         return cls(
-            latent_state=state,
+            state=state,
             source_seq=source_seq,
             source2source_mask=source2source_mask,
             target_input_seq=target_input_seq,
@@ -345,7 +326,7 @@ class PreprocessedRankingInput(TensorDataClass):
 
     def __post_init__(self):
         if (
-            isinstance(self.latent_state, torch.Tensor)
+            isinstance(self.state, torch.Tensor)
             or isinstance(self.source_seq, torch.Tensor)
             or isinstance(self.target_input_seq, torch.Tensor)
             or isinstance(self.target_output_seq, torch.Tensor)
@@ -353,7 +334,7 @@ class PreprocessedRankingInput(TensorDataClass):
             or isinstance(self.gt_target_output_seq, torch.Tensor)
         ):
             raise ValueError(
-                f"Use from_tensors() {type(self.latent_state)} {type(self.source_seq)} "
+                f"Use from_tensors() {type(self.state)} {type(self.source_seq)} "
                 f"{type(self.target_input_seq)} {type(self.target_output_seq)} "
                 f"{type(self.gt_target_input_indcs)} {type(self.gt_target_output_seq)} "
             )

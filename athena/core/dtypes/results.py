@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Tuple
 
 from athena.core.dataclasses import dataclass, field
-from athena.core.registry import RegistryMeta, DiscriminatedUnion
+from athena.core.registry import DiscriminatedUnion, RegistryMeta
 
 
 @dataclass
@@ -44,6 +44,7 @@ class Seq2SlateTrainingReport(TrainingReport):
     __registry_name__ = "seq2slate_report"
 
 
+@TrainingReport.register()
 class TrainingReportRoster(DiscriminatedUnion):
     pass
 

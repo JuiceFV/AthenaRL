@@ -1,5 +1,5 @@
+from enum import Enum, EnumMeta
 from typing import Union
-from enum import EnumMeta, Enum
 
 __all__ = ["AthenaEnumMeta", "Enum"]
 

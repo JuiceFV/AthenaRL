@@ -3,8 +3,9 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 import numpy as np
 import torch
-from athena.core.logger import LoggerMixin
 from torch.utils.tensorboard import SummaryWriter
+
+from athena.core.logger import LoggerMixin
 
 
 class SummaryWriterContextMeta(type, LoggerMixin):
@@ -53,7 +54,7 @@ class SummaryWriterContext(metaclass=SummaryWriterContextMeta):
     @classmethod
     def add_histogram(cls, tag: str, values: Union[torch.Tensor, np.ndarray], *args, **kwargs) -> None:
         try:
-            return getattr(cls, "add_histogram")(tag, values, *args, **kwargs)
+            return cls.__getattr__("add_histogram")(tag, values, *args, **kwargs)
         except ValueError:
             cls.warning(f"Cannot create histogram for {tag}, got values: {values}")
 
@@ -77,7 +78,7 @@ class SummaryWriterContext(metaclass=SummaryWriterContextMeta):
 
     @classmethod
     def pop(cls) -> SummaryWriter:
-        return cls._custom_scalars.pop()
+        return cls._writer_stacks.pop()
 
 
 @contextlib.contextmanager

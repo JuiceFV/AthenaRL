@@ -86,7 +86,7 @@ class TrackableMixin(LoggerMixin):
 
 def trackable(cls: Optional[object] = None, **kwargs) -> Union[Callable[[object], TrackableMixin], TrackableMixin]:
     if not kwargs:
-        raise ValueError("No trackable fields were passed.")
+        raise RuntimeError("No trackable fields were passed.")
     trackable_val_types = kwargs
 
     def make_trackable(cls: object) -> TrackableMixin:

@@ -1,4 +1,4 @@
-from athena.core.dtypes.ranking.base import (DocSeq, PreprocessedRankingInput,
+from athena.core.dtypes.ranking.base import (PreprocessedRankingInput,
                                              RankingOutput)
 from athena.core.dtypes.ranking.seq2slate import (Seq2SlateMode,
                                                   Seq2SlateOutputArch,
@@ -6,7 +6,6 @@ from athena.core.dtypes.ranking.seq2slate import (Seq2SlateMode,
                                                   Seq2SlateVersion)
 
 __all__ = [
-    "DocSeq",
     "RankingOutput",
     "PreprocessedRankingInput",
     "Seq2SlateMode",

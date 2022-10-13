@@ -1,5 +1,6 @@
-import torch.nn as nn
 from typing import Dict, List, Optional
+
+import torch.nn as nn
 
 import athena.core.dtypes as adt
 from athena.core.base_dclass import BaseDataClass
@@ -16,7 +17,7 @@ class TransformerParams(BaseDataClass):
     dim_model: int = 64
     dim_feedforward: int = 32
     nlayers: int = 2
-    latent_state_embed_dim: Optional[int] = None
+    state_embed_dim: Optional[int] = None
 
 
 @dataclass(frozen=True)

@@ -1,7 +1,7 @@
 import logging
-import torch
-
 from typing import Dict, List, Optional, Tuple, Union
+
+import torch
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.utilities import rank_zero_only
 

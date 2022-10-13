@@ -1,5 +1,6 @@
-from typing import Any, Callable, Dict, List, Iterable, Optional
-from athena.core.tracker import Tracker, Aggregator
+from typing import Any, Callable, Dict, Iterable, List, Optional
+
+from athena.core.tracker import Aggregator, Tracker
 
 
 class CompositeMonitor(Tracker):
@@ -64,7 +65,7 @@ class ValueListMonitor(Tracker):
 
 
 class OnEpochEndMonitor(Tracker):
-    def __init__(self, callback: Callable[[Any], None], field: str) -> None:
+    def __init__(self, callback: Callable[[Any], None], field: str = "epoch_end") -> None:
         super().__init__([field])
         self.callback = callback
 
