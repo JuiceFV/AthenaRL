@@ -1,6 +1,7 @@
+from typing import Callable, Dict, List
+
 import torch
 
-from typing import Callable, Dict, List
 from athena.preprocessing.transforms.base import Transformation
 
 
