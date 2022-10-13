@@ -1,29 +1,23 @@
-import abc
 import math
 from typing import Optional, Tuple
 
-import athena.core.dtypes as adt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from athena.core.config import resolve_defaults
 from torch.distributions import Gumbel
+
+from athena.core.config import resolve_defaults
 
 
 class Sampler(nn.Module):
-    """Base sampler class from which one all
-    samplers should be forked.
-
-    TODO:
-    1. Inherit SimplexSampler and FrechetSort
-    2. Deal with the Sampling output and torch.script (they're incompatible)
+    """Base sampler class from which one all samplers should be forked.
     """
-    @abc.abstractmethod
-    def sample(scores: torch.Tensor) -> adt.SamplingOutput:
-        raise NotImplementedError()
+
+    def __init__(self) -> None:
+        super().__init__()
 
 
-class SimplexSampler(nn.Module):
+class SimplexSampler(Sampler):
     r"""
     The sampler picks a vertex of n-dimensional simplex defined as
 
@@ -32,7 +26,7 @@ class SimplexSampler(nn.Module):
         \Delta^n = \left\{(\theta_0v_0, \ldots, \theta_nv_n) \in \mathbb{R}^{n + 1}
         | \sum_{i=0}^n{\theta_i} = 1 \text{ and } \theta_i \geq 0 \right\}
 
-    There are two ways to pick a vertex, in purpose to find 
+    There are two ways to pick a vertex, in purpose to find
     `Fréchet mean <https://en.wikipedia.org/wiki/Fréchet_mean>`_ one minimizes the global
     error:
 
@@ -83,9 +77,6 @@ class SimplexSampler(nn.Module):
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: Chosen vertex & Generative probabilities of last step.
-
-        FIXME: Currently, torch.jit.script doesn't trace the `adt.SamplingOutput`. It worths to
-        make all samplers according to the sole template.
         """
         batch_size = scores.shape[0]
         # Retrieve the last observed probabilities
@@ -100,12 +91,13 @@ class SimplexSampler(nn.Module):
         return vertex, probas_dist
 
 
-class FrechetSort:
-    r"""
-    """
+class FrechetSort(Sampler):
 
     @resolve_defaults
-    def __init__(self, shape: float = 1.0, topk: Optional[int] = None, equiv_len: Optional[int] = None, log_scores: bool = False) -> None:
+    def __init__(
+        self, shape: float = 1.0, topk: Optional[int] = None, equiv_len: Optional[int] = None, log_scores: bool = False
+    ) -> None:
+        super().__init__()
         self.shape = shape
         self.topk = topk
         self.upto = equiv_len
@@ -117,7 +109,7 @@ class FrechetSort:
         self.gumbel_noise = Gumbel(0, 1.0 / shape)
         self.log_scores = log_scores
 
-    def sample(self, scores: torch.Tensor) -> adt.SamplingOutput:
+    def forward(self, scores: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         if scores.dim() != 2:
             raise ValueError("Sample only accepts batches")
         log_scores = scores if self.log_scores else torch.log(scores)
@@ -126,14 +118,17 @@ class FrechetSort:
         log_proba = self.log_proba(scores, action)
         if self.topk is not None:
             action = action[: self.topk]
-        return adt.SamplingOutput(action, log_proba)
+        return action, log_proba
 
-    def log_proba(self, scores: torch.Tensor, action: torch.Tensor, equiv_len_override: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def log_proba(
+        self, scores: torch.Tensor, action: torch.Tensor, equiv_len_override: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         upto = self.upto
         if equiv_len_override is not None:
             if equiv_len_override.shape != scores.shape[0]:
                 raise ValueError(
-                    f"Invalid shape {equiv_len_override.shape}, compared to scores {scores.shape}. equiv_len_override {equiv_len_override}"
+                    f"Invalid shape {equiv_len_override.shape}, compared to scores"
+                    f"{scores.shape}. equiv_len_override {equiv_len_override}"
                 )
             upto = equiv_len_override.long()
             if self.topk is not None and torch.any(equiv_len_override > self.topk):
@@ -151,7 +146,8 @@ class FrechetSort:
             )
         elif action.shape[1] < scores.shape[1]:
             raise NotImplementedError(
-                f"This semantic is ambiguous. If you have shorter slate, pad it with scores.shape[1] ({scores.shape[1]})"
+                "This semantic is ambiguous. If you have shorter"
+                f" slate, pad it with scores.shape[1] ({scores.shape[1]})"
             )
 
         log_scores = scores if self.log_scores else torch.log(scores)
