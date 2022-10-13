@@ -1,5 +1,4 @@
 import logging
-import random
 import unittest
 import pytorch_lightning as pl
 import torch
@@ -18,7 +17,7 @@ class TestSeq2SlateInference(unittest.TestCase):
         pl.seed_everything(0)
 
     def test_seq2slate_scriptable(self):
-        latent_state_dim = 2
+        state_dim = 2
         candidate_dim = 3
         nlayers = 2
         nheads = 2
@@ -31,7 +30,7 @@ class TestSeq2SlateInference(unittest.TestCase):
         greedy = True
 
         seq2slate = Seq2SlateTransformerModel(
-            latent_state_dim=latent_state_dim,
+            state_dim=state_dim,
             candidate_dim=candidate_dim,
             nlayers=nlayers,
             nheads=nheads,
@@ -42,10 +41,10 @@ class TestSeq2SlateInference(unittest.TestCase):
             output_arch=output_arch,
             temperature=temperature
         )
-        seq2slate_scripted = torch.jit.script(seq2slate)
+        _ = torch.jit.script(seq2slate)
 
         seq2slate_net = Seq2SlateTransformerNetwork(
-            latent_state_dim=latent_state_dim,
+            state_dim=state_dim,
             candidate_dim=candidate_dim,
             nlayers=nlayers,
             nheads=nheads,

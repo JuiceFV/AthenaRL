@@ -1,0 +1,52 @@
+input_table_spec:
+  table_name: test_table
+  table_sample: 90
+  eval_table_sample: 10
+model:
+  Seq2Slate:
+    state_preprocessing_options:
+      nsamples: 10000
+    candidate_preprocessing_options:
+      nsamples: 10000
+    slate_size: 50
+    num_of_candidates: 50
+    net_builder:
+      Seq2SlateRanking:
+        output_arch: "autoregressive"
+        temperature: 1.0
+        transformer:
+          nheads: 2
+          dim_model: 32
+          dim_feedforward: 32
+          nlayers: 2
+    trainer_params:
+      params:
+        on_policy: False
+        version: "reinforcement_learning"
+        ips_blur:
+          blur_method: "universal"
+          blur_max: 3.0
+      metric:
+        NDCG:
+          topk: 10
+      policy_optimizer:
+        SGD:
+          lr: 0.1
+          weight_decay: 0.001
+      cpe: False
+nepochs: 1
+options:
+  rl_options:
+    reward_options:
+      reward_col_name: "item_reward"
+      metrics_col_name: "slate_reward"
+  resource_options:
+    gpu: 8
+  reader_options:
+    minibatch_size: 512
+fapper:
+  SparkFapper:
+    config:
+      spark_driver_memory: "10g"
+
+

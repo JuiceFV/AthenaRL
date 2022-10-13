@@ -1,18 +1,22 @@
-from itertools import permutations
 import logging
 import math
-import pytorch_lightning as pl
+from itertools import permutations
 from typing import List, Optional, Tuple
+
+import pytorch_lightning as pl
 import torch
+from torch.utils.data import DataLoader
+
 import athena.core.dtypes as adt
 from athena import gather
-from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode, Seq2SlateOutputArch, Seq2SlateVersion
+from athena.core.dtypes.ranking.seq2slate import (Seq2SlateMode,
+                                                  Seq2SlateOutputArch,
+                                                  Seq2SlateVersion)
+from athena.core.parameters import Seq2SlateParams
 from athena.models.base import BaseModel
 from athena.models.ranking.seq2slate import Seq2SlateTransformerNetwork
-from athena.core.parameters import Seq2SlateParams
 from athena.optim.optimizer_roster import OptimizerRoster
 from athena.trainers.ranking.seq2slate.seq2slate_base import Seq2SlateTrainer
-from torch.utils.data import DataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +36,8 @@ def post_preprocess_batch(
         seq2slate_net, batch, num_of_candidates, greedy=False
     )
     batch = adt.PreprocessedRankingInput.from_input(
-        state=batch.latent_state.repr,
-        candidates=batch.source_seq.repr,
+        state=batch.state.dense_features,
+        candidates=batch.source_seq.dense_features,
         device=device,
         actions=model_actions,
         logged_propensities=model_propensity,
@@ -49,19 +53,18 @@ class Seq2SlateOnPolicyTrainer(Seq2SlateTrainer):
         self,
         batch: adt.PreprocessedRankingInput,
         batch_idx: int,
-        dataloader_idx: int
     ) -> Optional[int]:
         new_batch = post_preprocess_batch(
             self.reinforce,
             self.reinforce.max_source_seq_len,
             batch,
-            batch.latent_state.repr.device,
+            batch.state.dense_features.device,
             self.current_epoch
         )
         for attr in dir(new_batch):
             if not attr.startswith("__") and not callable(getattr(new_batch, attr)):
                 setattr(batch, attr, getattr(new_batch, attr))
-        super().on_train_batch_start(batch, batch_idx, dataloader_idx)
+        super(Seq2SlateTrainer, self).on_train_batch_start(batch, batch_idx)
 
 
 def create_seq2slate_net(
@@ -73,7 +76,7 @@ def create_seq2slate_net(
     device: torch.device
 ) -> Seq2SlateTransformerNetwork:
     return Seq2SlateTransformerNetwork(
-        latent_state_dim=1,
+        state_dim=1,
         candidate_dim=candidate_dim,
         nlayers=2,
         nheads=2,
@@ -83,7 +86,7 @@ def create_seq2slate_net(
         max_target_seq_len=num_of_candidates,
         output_arch=output_arch,
         temperature=temperature,
-        latent_state_embed_dim=1
+        state_embed_dim=1
     ).to(device)
 
 
@@ -180,7 +183,7 @@ def run_seq2slate_tsp(
         learning_method,
         diverse_input
     )
-    best_test_possible_reward = compute_best_reward(test_batch.source_seq.repr)
+    best_test_possible_reward = compute_best_reward(test_batch.source_seq.dense_features)
 
     seq2slate_net = create_seq2slate_net(
         num_of_candidates,
@@ -260,7 +263,7 @@ def rank_on_policy_and_eval(
     greedy: bool
 ):
     model_propensity, model_actions = rank_on_policy(seq2slate_net, batch, target_seq_len, greedy)
-    ordered_cities = gather(batch.source_seq.repr, model_actions)
+    ordered_cities = gather(batch.source_seq.dense_features, model_actions)
     reward = compute_reward(ordered_cities)
     return model_propensity, model_actions, reward
 

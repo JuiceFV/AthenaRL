@@ -158,8 +158,8 @@ class TestSeq2SlateOnPolicy(unittest.TestCase):
             diverse_input=False
         )
         batch = adt.PreprocessedRankingInput.from_input(
-            state=batch.latent_state.repr,
-            candidates=batch.source_seq.repr,
+            state=batch.state.dense_features,
+            candidates=batch.source_seq.dense_features,
             device=device,
             actions=all_perms
         )

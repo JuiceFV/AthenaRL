@@ -1,7 +1,6 @@
-from typing import Dict, Union, List
+from typing import Dict, Union
 
 import numpy as np
-import torch
 from athena.core.dtypes import Ftype
 from athena.core.parameters import NormalizationParams
 from athena.preprocessing import BOXCOX_MARGIN, MAX_FVALUE, MIN_FVALUE, MISSING_VALUE
@@ -100,14 +99,18 @@ class NumpyFeaturePreprocessor(object):
         return feature
 
     @classmethod
-    def preprocess(cls, features: Dict[int, Union[np.float32, int]], params: Dict[int, NormalizationParams]) -> Dict[int, np.float32]:
+    def preprocess(
+        cls, features: Dict[int, Union[np.float32, int]], params: Dict[int, NormalizationParams]
+    ) -> Dict[int, np.float32]:
         res: Dict[int, np.float32] = {}
         for fid in features:
             res[fid] = cls.preprocess_feature(features[fid], params[fid])
         return res
 
     @classmethod
-    def preprocess_array(cls, arr: np.ndarray, features: Dict[int, Union[np.float32, int]], params: Dict[int, NormalizationParams]) -> np.ndarray:
+    def preprocess_array(
+        cls, arr: np.ndarray, features: Dict[int, Union[np.float32, int]], params: Dict[int, NormalizationParams]
+    ) -> np.ndarray:
         assert len(arr.shape) == 2 and arr.shape[1] == len(features)
         preprocessed_values = [
             cls.preprocess(

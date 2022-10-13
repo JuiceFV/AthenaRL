@@ -26,9 +26,14 @@ logger.setLevel(level=logging.INFO)
 
 output_arch_list = [Seq2SlateOutputArch.FRECHET_SORT, Seq2SlateOutputArch.AUTOREGRESSIVE]
 policy_optimizer_interval_list = [1, 5]
-blur_method_list = [IPSBlurMethod.UNIVERSAL, IPSBlurMethod.UNIVERSAL]
+blur_method_list = [IPSBlurMethod.UNIVERSAL, IPSBlurMethod.AGGRESSIVE]
 blur_max_list = [1.0, 10.0]
 frechet_sort_shape_list = [0.1, 0.5, 1.0]
+
+
+class Seq2SlateOnPolicyTrainer(Seq2SlateTrainer):
+    def on_train_batch_start(self, batch: adt.PreprocessedRankingInput, batch_idx: int):
+        return super(Seq2SlateTrainer, self).on_train_batch_start(batch, batch_idx)
 
 
 def create_trainer(
@@ -37,7 +42,8 @@ def create_trainer(
     params: Seq2SlateParams,
     policy_optimizer_interval: int
 ) -> Seq2SlateTrainer:
-    return Seq2SlateTrainer(
+    trainer_cls = Seq2SlateOnPolicyTrainer if params.on_policy else Seq2SlateTrainer
+    return trainer_cls(
         reinforce_network=net,
         params=params,
         policy_optimizer=OptimizerRoster(SGD=opt_classes["SGD"](lr=lr)),
@@ -46,14 +52,14 @@ def create_trainer(
 
 
 def create_seq2slate_transformer(
-    latent_state_dim: int,
+    state_dim: int,
     num_of_candidates: int,
     candidate_dim: int,
     hidden_size: int,
     output_arch: Seq2SlateOutputArch
 ) -> Seq2SlateTransformerNetwork:
     return Seq2SlateTransformerNetwork(
-        latent_state_dim=latent_state_dim,
+        state_dim=state_dim,
         candidate_dim=candidate_dim,
         nlayers=2,
         nheads=2,
@@ -69,13 +75,13 @@ def create_seq2slate_transformer(
 def create_on_policy_batch(
     net: Seq2SlateTransformerNetwork,
     batch_size: int,
-    latent_state_dim: int,
+    state_dim: int,
     num_of_candidates: int,
     candidate_dim: int,
     rank_seed: int,
     device: torch.device
 ) -> adt.PreprocessedRankingInput:
-    state = torch.randn(batch_size, latent_state_dim).to(device)
+    state = torch.randn(batch_size, state_dim).to(device)
     candidates = torch.randn(batch_size, num_of_candidates, candidate_dim).to(device)
     reward = torch.rand(batch_size, 1).to(device)
     batch = adt.PreprocessedRankingInput.from_input(state=state, candidates=candidates, device=device)
@@ -99,12 +105,12 @@ def create_on_policy_batch(
 
 def create_off_policy_batch(
     batch_size: int,
-    latent_state_dim: int,
+    state_dim: int,
     num_of_candidates: int,
     candidate_dim: int,
     device: torch.device
 ):
-    state = torch.randn(batch_size, latent_state_dim)
+    state = torch.randn(batch_size, state_dim)
     candidates = torch.randn(batch_size, num_of_candidates, candidate_dim)
     reward = torch.rand(batch_size, 1)
     actions = torch.stack([torch.randperm(num_of_candidates) for _ in range(batch_size)])
@@ -193,7 +199,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         self, policy_optimizer_interval: int, output_arch: Seq2SlateOutputArch, device: torch.device
     ):
         batch_size = 32
-        latent_state_dim = 2
+        state_dim = 2
         num_of_candidates = 15
         candidate_dim = 4
         hidden_size = 16
@@ -202,7 +208,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         rank_seed = 111
         seq2slate_params = Seq2SlateParams(on_policy=on_policy)
         seq2slate_net = create_seq2slate_transformer(
-            latent_state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
+            state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
         ).to(device)
         seq2slate_net_copy1 = deepcopy(seq2slate_net).to(device)
         seq2slate_net_copy2 = deepcopy(seq2slate_net).to(device)
@@ -210,7 +216,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         batch = create_on_policy_batch(
             seq2slate_net,
             batch_size,
-            latent_state_dim,
+            state_dim,
             num_of_candidates,
             candidate_dim,
             rank_seed,
@@ -245,7 +251,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         self, policy_optimizer_interval: int, output_arch: Seq2SlateOutputArch, device: torch.device
     ):
         batch_size = 32
-        latent_state_dim = 2
+        state_dim = 2
         num_of_candidates = 15
         candidate_dim = 4
         hidden_size = 16
@@ -254,12 +260,12 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         seq2slate_params = Seq2SlateParams(on_policy=on_policy)
 
         seq2slate_net = create_seq2slate_transformer(
-            latent_state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
+            state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
         ).to(device)
         seq2slate_net_copy1 = deepcopy(seq2slate_net).to(device)
         seq2slate_net_copy2 = deepcopy(seq2slate_net).to(device)
         trainer = create_trainer(seq2slate_net, lr, seq2slate_params, policy_optimizer_interval)
-        batch = create_off_policy_batch(batch_size,  latent_state_dim, num_of_candidates, candidate_dim, device)
+        batch = create_off_policy_batch(batch_size,  state_dim, num_of_candidates, candidate_dim, device)
 
         training_data = DataLoader([batch], collate_fn=lambda x: x[0])
         pl_trainer = pl.Trainer(
@@ -288,9 +294,11 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         self.assert_gradients_correct(seq2slate_net_copy2, seq2slate_net, policy_optimizer_interval, lr)
 
     @parameterized.expand(itertools.product(blur_method_list, output_arch_list))
-    def test_seq2slate_base_trainer_off_policy_with_ips_blur(self, blur_method: IPSBlurMethod, output_arch: Seq2SlateOutputArch):
+    def test_seq2slate_base_trainer_off_policy_with_ips_blur(
+        self, blur_method: IPSBlurMethod, output_arch: Seq2SlateOutputArch
+    ):
         batch_size = 32
-        latent_state_dim = 2
+        state_dim = 2
         num_of_candidates = 15
         candidate_dim = 4
         hidden_size = 16
@@ -303,11 +311,11 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         )
 
         seq2slate_net = create_seq2slate_transformer(
-            latent_state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
+            state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
         )
         seq2slate_net_copy = deepcopy(seq2slate_net)
         trainer = create_trainer(seq2slate_net, lr, seq2slate_params, policy_optimizer_interval)
-        batch = create_off_policy_batch(batch_size, latent_state_dim, num_of_candidates, candidate_dim, device)
+        batch = create_off_policy_batch(batch_size, state_dim, num_of_candidates, candidate_dim, device)
 
         training_data = DataLoader([batch], collate_fn=lambda x: x[0])
         pl_trainer = pl.Trainer(max_epochs=policy_optimizer_interval, logger=False)
@@ -325,8 +333,12 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         loss.backward()
         self.assert_gradients_correct(seq2slate_net_copy, seq2slate_net, policy_optimizer_interval, lr)
 
-    @parameterized.expand(itertools.product(output_arch_list, blur_method_list, blur_max_list, frechet_sort_shape_list))
-    def test_compute_importance_sampling(self, output_arch: Seq2SlateOutputArch, blur_method: IPSBlurMethod, blur_max: float, shape: float):
+    @parameterized.expand(
+        itertools.product(output_arch_list, blur_method_list, blur_max_list, frechet_sort_shape_list)
+    )
+    def test_compute_importance_sampling(
+        self, output_arch: Seq2SlateOutputArch, blur_method: IPSBlurMethod, blur_max: float, shape: float
+    ):
         logger.info(f"Output arch: {output_arch}")
         logger.info(f"Blur method: {blur_method}")
         logger.info(f"Blur max: {blur_max}")
@@ -334,7 +346,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
 
         num_of_candidates = 5
         candidate_dim = 2
-        latent_state_dim = 1
+        state_dim = 1
         hidden_size = 32
         device = torch.device("cpu")
         lr = 0.001
@@ -348,7 +360,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
             ips_blur=IPSBlur(blur_method=blur_method, blur_max=blur_max)
         )
         seq2slate_net = create_seq2slate_transformer(
-            latent_state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
+            state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
         )
         trainer = create_trainer(seq2slate_net, lr, seq2slate_params, policy_optimizer_interval)
 
@@ -362,7 +374,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
             simplex_vertex = all_perms[i]
             logged_propensity = torch.exp(sampler.log_proba(candidate_scores, simplex_vertex))
             batch = adt.PreprocessedRankingInput.from_input(
-                state=torch.zeros(1, latent_state_dim),
+                state=torch.zeros(1, state_dim),
                 candidates=candidates.unsqueeze(0),
                 device=device,
                 actions=simplex_vertex.unsqueeze(0),
@@ -399,7 +411,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
 
         num_of_candidates = 5
         candidate_dim = 2
-        latent_state_dim = 1
+        state_dim = 1
         hidden_size = 8
         device = torch.device("cpu")
         batch_size = 1024
@@ -407,7 +419,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         lr = 0.001
         policy_optimizer_interval = 1
 
-        state = torch.zeros(batch_size, latent_state_dim)
+        state = torch.zeros(batch_size, state_dim)
 
         candidates = torch.randint(5, (batch_size, num_of_candidates, candidate_dim)).float()
         candidates[1:] = candidates[0]
@@ -415,7 +427,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
 
         seq2slate_params = Seq2SlateParams(on_policy=False)
         seq2slate_net = create_seq2slate_transformer(
-            latent_state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
+            state_dim, num_of_candidates, candidate_dim, hidden_size, output_arch
         )
         trainer = create_trainer(seq2slate_net, lr, seq2slate_params, policy_optimizer_interval)
 
@@ -423,9 +435,9 @@ class TestSeq2SlateTrainer(unittest.TestCase):
         sum_of_ips_ratio = 0
 
         for i in range(num_butches):
-            sampling = [sampler.sample(candidate_scores[j: j + 1]) for j in range(batch_size)]
-            simplex_vertex = torch.stack(list(map(lambda so: so.vertex.squeeze(0), sampling)))
-            logged_propensity = torch.stack(list(map(lambda so: torch.exp(so.probas_dist), sampling)))
+            sampling = [sampler(candidate_scores[j: j + 1]) for j in range(batch_size)]
+            simplex_vertex = torch.stack(list(map(lambda so: so[0].squeeze(0), sampling)))
+            logged_propensity = torch.stack(list(map(lambda so: torch.exp(so[1]), sampling)))
             batch = adt.PreprocessedRankingInput.from_input(
                 state=state,
                 candidates=candidates,
@@ -438,7 +450,7 @@ class TestSeq2SlateTrainer(unittest.TestCase):
             sum_of_ips_ratio += torch.mean(ips_weights).detach().numpy()
             mean_of_ips_ratio = sum_of_ips_ratio / (i + 1)
             logger.info(f"{i}-th batch, mean IPS ratio={mean_of_ips_ratio}")
-            
+
             if i > 100 and np.allclose(mean_of_ips_ratio, 1, atol=0.01):
                 return
         raise Exception(f"Mean IPS ratio {mean_of_ips_ratio} doesn't converge to 1")

@@ -1,7 +1,6 @@
 import logging
 import unittest
 
-import numpy as np
 import pytest
 import pytorch_lightning as pl
 import torch
