@@ -1,5 +1,4 @@
 from athena.core.dataclasses import dataclass
-from athena.core.logger import LoggerMixin
 from athena.core.dtypes import TrainingOutput
 from athena.core.dtypes.results import NoPublishingResults
 from athena.model_managers.manager import ModelManager
