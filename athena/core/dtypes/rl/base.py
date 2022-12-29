@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from athena.core.dataclasses import dataclass
 from enum import Enum
 
 from athena.core.base_dclass import BaseDataClass

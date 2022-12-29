@@ -54,5 +54,5 @@ class TrainingOutput:
     output_paths: Dict[str, str] = field(default_factory=dict)
     validation_result: Optional[ValidationResultRoster] = None
     publishing_result: Optional[PublishingResultRoster] = None
-    training_report: Optional[TrainingReport] = None
+    training_report: Optional[TrainingReportRoster] = None
     logger_data: Dict[str, Dict[str, List[Tuple[float, float]]]] = field(default_factory=dict)
