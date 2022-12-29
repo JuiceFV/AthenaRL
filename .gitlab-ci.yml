@@ -1,5 +1,5 @@
 default:
-  image: ubuntu-2004:202111-02
+  image: python:3.8
 
 .pip_install: &pip_install
     - curl https://pyenv.run | bash
