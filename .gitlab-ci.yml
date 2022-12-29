@@ -2,11 +2,6 @@ default:
   image: python:3.8
 
 .pip_install: &pip_install
-    - rm -rf /root/.pyenv
-    - curl https://pyenv.run | bash
-    - exec $SHELL
-    - for i in 1 2 3 4 5; do pyenv install -v 3.8.1 && break || sleep 15; done
-    - pyenv global 3.8.1
     - sudo apt update
     - pip install --upgrade pip --progress-bar off
     - pip install --upgrade cmake wheel setuptools --progress-bar off
