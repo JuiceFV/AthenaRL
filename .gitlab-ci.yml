@@ -1,0 +1,40 @@
+default:
+  image: ubuntu-2004:202111-02
+
+.pip_install: &pip_install
+    - curl https://pyenv.run | bash
+    - for i in 1 2 3 4 5; do pyenv install -v 3.8.1 && break || sleep 15; done
+    - pyenv global 3.8.1
+    - sudo apt update
+    - pip install --upgrade pip --progress-bar off
+    - pip install --upgrade cmake wheel setuptools --progress-bar off
+    - sudo apt install swigd
+    - pip install tox==3.20.1 --progress-bar off
+    - >
+      if [ "$e2e_test" == "true" ]; then
+        if [  "$is_ubuntu_gpu" == "true" ]; then
+          pip install -e .[test,torchrec_gpu] --pre --extra-index-url https://download.pytorch.org/whl/cu113 -f https://download.pytorch.org/whl/torchrec/ --progress-bar off
+        else
+          pip install -e .[test,torchrec_cpu] --pre --extra-index-url https://download.pytorch.org/whl/cpu -f https://download.pytorch.org/whl/nightly/torchrec_nightly_cpu/ --progress-bar off
+        fi
+      fi
+
+.run_unittest: &run_unittest
+    - *pip_install
+    - tox -v -e $tox_env
+    - bash <(curl -s https://codecov.io/bash)
+    - python setup.py -q bdist_wheel
+  
+
+.run_interrogate: &run_interrogate
+    - pip install interrogate --progress-bar off
+    - interrogate -piImvv -f 15 athena/
+
+misc_unittest:
+  variables:
+    e2e_test: "false"
+    is_ubuntu_gpu: "false"
+    tox_env: "misc_unittest"
+  script:
+    - *run_unittest
+  
