@@ -37,8 +37,9 @@ class ReporterBase(CompositeMonitor, LoggerMixin):
         val = self._value_list_monitors.get(field, None)
         if val is None:
             val = self._aggregating_monitors.get(field, None)
-        if val is None:
-            raise AttributeError(f"No such field {field}.")
+            if val is None:
+                raise AttributeError(f"No such field {field}.")
+            val = val.aggregator
         return val
 
     @abc.abstractmethod

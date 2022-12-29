@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple
 
 import torch
+import logging
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -15,6 +16,10 @@ from athena.nn.rl.variance_reduction import (BaselineNetwork, ips_blur,
                                              ips_ratio)
 from athena.optim import OptimizerRoster
 from athena.trainers import STEP_OUTPUT, AthenaLightening
+from athena.core.tensorboard import SummaryWriterContext
+
+
+logger = logging.getLogger(__name__)
 
 
 class Seq2SlateTrainer(AthenaLightening):
@@ -52,6 +57,7 @@ class Seq2SlateTrainer(AthenaLightening):
             raise RuntimeError("Counterfactual evaluation policy needs propensity logic to be passed.")
         self.cpe = cpe
         self.propensity_network = propensity_network
+        SummaryWriterContext.add_graph(self.reinforce)
 
     def configure_optimizers(self):
         optimizers = []
@@ -131,7 +137,7 @@ class Seq2SlateTrainer(AthenaLightening):
                 reinforce_optimizer.step()
                 reinforce_optimizer.zero_grad()
         else:
-            self.info("Baseline model is warming up, thus do not update reinforce model.")
+            logger.info("Baseline model is warming up, thus do not update reinforce model.")
 
         ips_loss = torch.mean(-ips_weights * reward).cpu().detach().numpy()
         blured_ips_loss = torch.mean(-blured_ips_weights * reward).cpu().detach().numpy()
@@ -140,7 +146,7 @@ class Seq2SlateTrainer(AthenaLightening):
         logged_slate_rank_probas = model_propensities.detach().cpu().numpy()
 
         # TODO: add print interval
-        self.info(
+        logger.info(
             f"{self.all_batches_processed + 1} batch: "
             f"ips_loss={ips_loss}, "
             f"blured_ips_loss={blured_ips_loss}, "
@@ -159,6 +165,7 @@ class Seq2SlateTrainer(AthenaLightening):
             train_blured_ips_ratio=blured_ips_weights,
             train_advantages=advantages
         )
+        SummaryWriterContext.increase_global_step()
 
     def validation_step(self, batch: adt.PreprocessedRankingInput, batch_idx: int) -> Optional[STEP_OUTPUT]:
         reinforce = self.reinforce

@@ -16,6 +16,7 @@ from athena.model_managers.manager import ModelManager
 from athena.preprocessing.batch_preprocessor import Seq2SlateBatchPreprocessor
 from athena.preprocessing.preprocessor import Preprocessor
 from athena.preprocessing.transforms.petastorm import VectorPadding
+from athena.report.seq2slate_reporter import Seq2SlateReporter
 
 
 @dataclass
@@ -58,6 +59,9 @@ class Seq2SlateBase(ModelManager):
             resource_options=resource_options,
             model_manager=self
         )
+
+    def get_reporter(self) -> Seq2SlateReporter:
+        return Seq2SlateReporter()
 
 
 class Seq2SlateDataModule(ManualDataModule):

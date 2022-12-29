@@ -58,7 +58,7 @@ class lazy_property:
         self.__doc__ = retreiver.__doc__
         self.__name__ = retreiver.__name__
 
-    def __get__(self, __o: Optional[object]) -> Optional[Any]:
+    def __get__(self, __o: Optional[object], __t: type) -> Optional[Any]:
         if __o is None:
             return None
         value = self._retreiver(__o)

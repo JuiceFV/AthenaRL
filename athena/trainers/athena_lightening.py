@@ -1,3 +1,4 @@
+import logging
 import inspect
 from typing import Generator, Optional, Union
 
@@ -15,7 +16,10 @@ from athena.core.tensorboard import SummaryWriterContext
 from athena.report.base import ReporterBase
 
 
-class AthenaLightening(pl.LightningModule, LoggerMixin):
+logger = logging.getLogger(__name__)
+
+
+class AthenaLightening(pl.LightningModule):
     def __init__(self, automatic_optimization: bool = True) -> None:
         super().__init__()
         self._automatic_optimization = automatic_optimization
@@ -130,7 +134,7 @@ class AthenaLightening(pl.LightningModule, LoggerMixin):
 
     @final
     def on_train_epoch_end(self) -> None:
-        self.info(
+        logger.info(
             f"Finished train epoch {self.current_epoch} "
             f"with {self.train_batches_processed_this_epoch} batches processed"
         )
@@ -142,7 +146,7 @@ class AthenaLightening(pl.LightningModule, LoggerMixin):
 
     @final
     def on_validation_epoch_end(self) -> None:
-        self.info(
+        logger.info(
             f"Finished validation epoch {self.current_epoch} "
             f"with {self.val_batches_processed_this_epoch} batches processed"
         )
@@ -151,7 +155,7 @@ class AthenaLightening(pl.LightningModule, LoggerMixin):
 
     @final
     def on_test_epoch_end(self) -> None:
-        self.info(
+        logger.info(
             f"Finished test epoch {self.current_epoch} "
             f"with {self.test_batches_processed_this_epoch} batches processed"
         )
@@ -179,10 +183,10 @@ class StoppingEpochCallback(pl.Callback, LoggerMixin):
         super().__init__()
         self.num_epochs = num_epochs
 
-    def on_pretrain_routine_end(self, trainer: pl.Trainer, pl_module: AthenaLightening) -> None:
+    def on_fit_start(self, trainer: pl.Trainer, pl_module: AthenaLightening) -> None:
         if not isinstance(pl_module, AthenaLightening):
             raise TypeError("Module should be instantiate from AthenaLigthening.")
         cleanly_stopped = pl_module._cleanly_stopped.item()
-        self.info(f"Cleanly stopped: {cleanly_stopped}")
+        logger.info(f"Cleanly stopped: {cleanly_stopped}")
         if cleanly_stopped:
             pl_module.increase_next_stopping_epochs(self.num_epochs)
