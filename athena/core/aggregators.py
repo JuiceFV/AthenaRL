@@ -54,7 +54,7 @@ class TensorboardHistogramAndMeanAggregator(TensorAggregator):
         self.log_key = log_key
 
     def aggregate(self, values: torch.Tensor) -> None:
-        if len(values.shape) != 1 or (len(values.shape) != 2 or values.shape[1] != 1):
+        if len(values.shape) != 1 and (len(values.shape) != 2 or values.shape[1] != 1):
             raise RuntimeError(f"Unexpected shape for {self.field}: {values.shape}")
         try:
             SummaryWriterContext.add_histogram(self.log_key, values)
