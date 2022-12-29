@@ -1,6 +1,9 @@
+import logging
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from athena.core.tracker import Aggregator, Tracker
+
+logger = logging.getLogger(__name__)
 
 
 class CompositeMonitor(Tracker):
@@ -40,6 +43,12 @@ class IntervalAggMonitor(Tracker):
         self.agg_values.append(value)
         self.iter += 1
         if self.interval and self.iter % self.interval == 0:
+            logger.info(
+                "Aggregating values over the recent interval for %s at iteration %s; aggregator: %s",
+                self.field,
+                self.iter,
+                self.aggregator.__class__.__name__,
+            )
             self.aggregator(self.field, self.agg_values)
             self.agg_values = []
 
