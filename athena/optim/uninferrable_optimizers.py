@@ -23,6 +23,7 @@ class Adam(OptimizerConfig):
     foreach: Optional[bool] = None
     capturable: bool = False
     differentiable: bool = False
+    fused: bool = False
 
 
 @dataclass(frozen=True)
