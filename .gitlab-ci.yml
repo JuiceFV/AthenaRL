@@ -1,5 +1,5 @@
 default:
-  image: juicefv/athenarl:test
+  image: python:3.8
 
 .pip_install: &pip_install
     - sudo apt update
@@ -28,7 +28,6 @@ default:
     - interrogate -piImvv -f 15 athena/
 
 misc_unittest:
-  tags: [ saas-linux-medium-amd64 ]
   variables:
     e2e_test: "false"
     is_ubuntu_gpu: "false"
