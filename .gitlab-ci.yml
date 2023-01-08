@@ -1,5 +1,5 @@
 default:
-  image: reagent/reagent:cpu
+  image: juicefv/athenarl:test
 
 .pip_install: &pip_install
     - apt update
