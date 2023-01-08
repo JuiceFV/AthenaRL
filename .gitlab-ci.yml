@@ -3,9 +3,6 @@ default:
 
 .pip_install: &pip_install
     - cd /home/athenaci/project
-    - whoami
-    - pwd
-    - apt update
     - pip install --upgrade pip --progress-bar off
     - pip install --upgrade cmake wheel setuptools --progress-bar off
     - apt install -y swig
