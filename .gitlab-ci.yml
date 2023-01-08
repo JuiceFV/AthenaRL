@@ -3,10 +3,11 @@ default:
 
 .pip_install: &pip_install
     - sudo apt update
-    - pip install --upgrade pip --progress-bar off
-    - pip install --upgrade cmake wheel setuptools --progress-bar off
+    - pwd
+    - pip install --user --upgrade pip --progress-bar off
+    - pip install --user --upgrade cmake wheel setuptools --progress-bar off
     - sudo apt install -y swig
-    - pip install tox==3.20.1 --progress-bar off
+    - pip --user install tox==3.20.1 --progress-bar off
     - >
       if [ "$e2e_test" == "true" ]; then
         if [  "$is_ubuntu_gpu" == "true" ]; then
@@ -24,7 +25,7 @@ default:
   
 
 .run_interrogate: &run_interrogate
-    - pip install interrogate --progress-bar off
+    - pip install --user interrogate --progress-bar off
     - interrogate -piImvv -f 15 athena/
 
 misc_unittest:
