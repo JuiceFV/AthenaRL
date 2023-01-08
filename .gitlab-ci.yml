@@ -1,8 +1,9 @@
-image:
-  repository: juicefv/athenarl
-  tag: test
+default:
+  image: juicefv/athenarl:test
 
 .pip_install: &pip_install
+    - cd /home/athenaci/project
+    - whoami
     - pwd
     - apt update
     - pip install --upgrade pip --progress-bar off
