@@ -2,6 +2,7 @@ default:
   image: juicefv/athenarl:test
 
 .pip_install: &pip_install
+    - pwd
     - apt update
     - pip install --upgrade pip --progress-bar off
     - pip install --upgrade cmake wheel setuptools --progress-bar off
