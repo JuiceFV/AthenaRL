@@ -2,10 +2,10 @@ default:
   image: python:3.8
 
 .pip_install: &pip_install
-    - sudo apt update
+    - apt update
     - pip install --upgrade pip --progress-bar off
     - pip install --upgrade cmake wheel setuptools --progress-bar off
-    - sudo apt install -y swig
+    - apt install -y swig
     - pip install tox==3.20.1 --progress-bar off
     - >
       if [ "$e2e_test" == "true" ]; then
