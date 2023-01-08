@@ -1,5 +1,7 @@
 default:
-  image: juicefv/athenarl:test
+  image:
+    repository: juicefv/athenarl
+    tag: test
 
 .pip_install: &pip_install
     - pwd
