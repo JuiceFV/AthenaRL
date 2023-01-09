@@ -28,6 +28,8 @@ default:
     - interrogate -piImvv -f 15 athena/
 
 misc_unittest:
+  tags:
+    - dev
   variables:
     e2e_test: "false"
     is_ubuntu_gpu: "false"
