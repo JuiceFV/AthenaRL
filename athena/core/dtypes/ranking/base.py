@@ -1,12 +1,12 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 import torch
 
 from athena import gather
-from athena.core.dtypes import Feature, TensorDataClass
-from athena.nn.arch.transformer import DECODER_START_SYMBOL
-from athena.nn.utils.transformer import subsequent_mask
+from athena.core.dtypes import Feature, TensorDataClass, ExtraData
+from athena.nn.arch.transformer import DECODER_START_SYMBOL, PADDING_SYMBOL
+from athena.nn.utils.transformer import subsequent_and_padding_mask, padding_mask
 
 
 @dataclass
@@ -95,6 +95,9 @@ class PreprocessedRankingInput(TensorDataClass):
     #: Ground-truth target input sequence representaation.
     gt_target_output_seq: Optional[Feature] = None
 
+    #: Extra infromation
+    extras: Optional[ExtraData] = field(default_factory=ExtraData)
+
     def batch_size(self) -> int:
         return self.state.dense_features.size()[0]
 
@@ -108,10 +111,13 @@ class PreprocessedRankingInput(TensorDataClass):
         candidates: torch.Tensor,
         device: torch.device,
         actions: Optional[torch.Tensor] = None,
+        actions_mask: Optional[torch.Tensor] = None,
         gt_actions: Optional[torch.Tensor] = None,
+        gt_actions_mask: Optional[torch.Tensor] = None,
         logged_propensities: Optional[torch.Tensor] = None,
         slate_reward: Optional[torch.Tensor] = None,
-        position_reward: Optional[torch.Tensor] = None
+        position_reward: Optional[torch.Tensor] = None,
+        extras: Optional[ExtraData] = None
     ):
         """Transform the preprocessed data from raw input, s.t. it may be used in the ranking problem.
 
@@ -120,12 +126,15 @@ class PreprocessedRankingInput(TensorDataClass):
             candidates (torch.Tensor): Candidates for the next item to choose.
             device (torch.device): Device where computations occur.
             actions (Optional[torch.Tensor], optional): Target arangment "actions". Defaults to None.
+            actions_mask (Optional[torch.Tensor], optional): Mask of actions. Defaults to None.
             gt_actions (Optional[torch.Tensor], optional): Ground truth actions. Defaults to None.
+            gt_actions_mask: (Optional[torch.Tensor], optional): Mask of ground truth actions. Defaults to None.
             logged_propensities (Optional[torch.Tensor], optional): Propensities predicted by base model.
                 Defaults to None.
             slate_reward (Optional[torch.Tensor], optional): Total reward calculated for a permutation.
                 Defaults to None.
             position_reward (Optional[torch.Tensor], optional): Item-at-position reward. Defaults to None.
+            extras: (Optional[ExtraData], optional): Additional batch information. Defaults to None.
 
         Raises:
             ValueError: Wrong dimensionality of either ``state`` or ``candidates``.
@@ -138,7 +147,9 @@ class PreprocessedRankingInput(TensorDataClass):
             - state: :math:`(B, E)`
             - candidates: :math:`(B, N, C)`
             - actions: :math:`(B, S)`
+            - actions_mask: :math:`(B, S)`
             - gt_actions: :math:`(B, S)`
+            - gt_actions_mask: :math:`(B, S)`
             - logged_propensities: :math:`(B, 1)`
             - slate_reward: :math:`(B, 1)`
             - position_reward: :math:`(B, S)`
@@ -167,6 +178,13 @@ class PreprocessedRankingInput(TensorDataClass):
                 raise ValueError(
                     f"Expected state be 2-dimensional; Got {len(actions.shape)}. "
                 )
+            if actions_mask is not None:
+                if actions_mask.shape != actions.shape:
+                    raise ValueError(
+                        "Expected actions and actions_mask same shape; "
+                        f"Got {actions.shape} and {actions_mask.shape}"
+                    )
+                actions_mask = actions_mask.to(device)
             actions = actions.to(device)
 
         if logged_propensities is not None:
@@ -193,10 +211,13 @@ class PreprocessedRankingInput(TensorDataClass):
             position_reward = position_reward.to(device)
 
         source_input_indcs = torch.arange(num_of_candidates, device=device).repeat(batch_size, 1) + 2
-        source2source_mask = torch.ones(batch_size, num_of_candidates, num_of_candidates).type(torch.int8).to(device)
+        if actions_mask is not None:
+            source_input_indcs = source_input_indcs.masked_fill(~actions_mask, PADDING_SYMBOL)
+        source2source_mask = torch.ones(1, num_of_candidates, num_of_candidates, device=device).type(torch.int8)
+        source2source_mask = source2source_mask & padding_mask(source_input_indcs, PADDING_SYMBOL)
 
         def process_target_sequence(
-            actions: Optional[torch.Tensor]
+            actions: Optional[torch.Tensor], actions_mask: Optional[torch.Tensor]
         ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             target_input_indcs = None
             target_output_indcs = None
@@ -211,13 +232,14 @@ class PreprocessedRankingInput(TensorDataClass):
                     (torch.zeros(batch_size, 2, candidate_dim, device=device), candidates), dim=1
                 )
 
-                target_output_indcs = actions + 2
+                target_output_indcs = actions.clone().detach()
+                target_output_indcs[actions_mask] += 2
                 target_input_indcs = torch.full((batch_size, output_size), DECODER_START_SYMBOL, device=device)
                 target_input_indcs[:, 1:] = target_output_indcs[:, :-1]
                 target_output_seq = gather(shifted_candidates, target_output_indcs)
                 target_input_seq = torch.zeros(batch_size, output_size, candidate_dim, device=device)
                 target_input_seq[:, 1:] = target_output_seq[:, :-1]
-                target2target_mask = subsequent_mask(output_size, device)
+                target2target_mask = subsequent_and_padding_mask(target_input_indcs)
 
             return target_input_indcs, target_output_indcs, target_input_seq, target_output_seq, target2target_mask
 
@@ -227,14 +249,14 @@ class PreprocessedRankingInput(TensorDataClass):
             target_input_seq,
             target_output_seq,
             target2target_mask
-        ) = process_target_sequence(actions)
+        ) = process_target_sequence(actions, actions_mask)
 
         (
             gt_target_input_indcs,
             gt_target_output_indcs,
             gt_target_input_seq,
             gt_target_output_seq,
-        ) = process_target_sequence(gt_actions)[:-1]
+        ) = process_target_sequence(gt_actions, gt_actions_mask)[:-1]
 
         return cls.from_tensors(
             state=state,
@@ -253,6 +275,7 @@ class PreprocessedRankingInput(TensorDataClass):
             gt_target_output_indcs=gt_target_output_indcs,
             gt_target_input_seq=gt_target_input_seq,
             gt_target_output_seq=gt_target_output_seq,
+            extras=extras
         )
 
     @classmethod
@@ -274,6 +297,7 @@ class PreprocessedRankingInput(TensorDataClass):
         gt_target_output_indcs: Optional[torch.Tensor] = None,
         gt_target_input_seq: Optional[torch.Tensor] = None,
         gt_target_output_seq: Optional[torch.Tensor] = None,
+        extras: Optional[ExtraData] = None,
         **kwargs
     ):
         def annotation_checking(input: torch.Tensor) -> None:
@@ -321,7 +345,8 @@ class PreprocessedRankingInput(TensorDataClass):
             gt_target_input_indcs=gt_target_input_indcs,
             gt_target_output_indcs=gt_target_output_indcs,
             gt_target_input_seq=gt_target_input_seq,
-            gt_target_output_seq=gt_target_output_seq
+            gt_target_output_seq=gt_target_output_seq,
+            extras=extras
         )
 
     def __post_init__(self):
