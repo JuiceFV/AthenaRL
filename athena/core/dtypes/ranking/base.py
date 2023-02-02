@@ -4,9 +4,10 @@ from typing import Optional, Tuple
 import torch
 
 from athena import gather
-from athena.core.dtypes import Feature, TensorDataClass, ExtraData
-from athena.nn.arch.transformer import DECODER_START_SYMBOL, PADDING_SYMBOL
-from athena.nn.utils.transformer import subsequent_and_padding_mask, padding_mask
+from athena.core.dtypes import ExtraData, Feature, TensorDataClass
+from athena.nn.utils.transformer import (DECODER_START_SYMBOL, PADDING_SYMBOL,
+                                         encoder_mask,
+                                         subsequent_and_padding_mask)
 
 
 @dataclass
@@ -210,11 +211,12 @@ class PreprocessedRankingInput(TensorDataClass):
                 raise ValueError("Positional reward and actions shapes don't match.")
             position_reward = position_reward.to(device)
 
+        # Shift original sequence in purpose to take starting/padding into account
         source_input_indcs = torch.arange(num_of_candidates, device=device).repeat(batch_size, 1) + 2
         if actions_mask is not None:
             source_input_indcs = source_input_indcs.masked_fill(~actions_mask, PADDING_SYMBOL)
-        source2source_mask = torch.ones(1, num_of_candidates, num_of_candidates, device=device).type(torch.int8)
-        source2source_mask = source2source_mask & padding_mask(source_input_indcs, PADDING_SYMBOL)
+        # Mask out padding symbols for an encoder layer
+        source2source_mask = encoder_mask(source_input_indcs, 1, PADDING_SYMBOL)
 
         def process_target_sequence(
             actions: Optional[torch.Tensor], actions_mask: Optional[torch.Tensor]
@@ -232,10 +234,21 @@ class PreprocessedRankingInput(TensorDataClass):
                     (torch.zeros(batch_size, 2, candidate_dim, device=device), candidates), dim=1
                 )
 
-                target_output_indcs = actions.clone().detach()
-                target_output_indcs[actions_mask] += 2
+                output_indcs_placeholders = torch.arange(output_size, device=device).repeat(batch_size, 1)
+                if actions_mask is None:
+                    actions_mask = torch.ones(batch_size, output_size, dtype=torch.bool, device=device)
+                output_indcs_placeholders = output_indcs_placeholders * (~actions_mask)
+
+                # Shift decoder input/output indices over 2 positions
+                # to incorporate start/padding symbols
+                target_output_indcs = actions + output_indcs_placeholders + 2
                 target_input_indcs = torch.full((batch_size, output_size), DECODER_START_SYMBOL, device=device)
-                target_input_indcs[:, 1:] = target_output_indcs[:, :-1]
+                # Input sequence starts with DECODER_START_SYMBOL
+                # so that MHA knows how does the begining of a sequence look like
+                target_input_indcs[:, 1:] = target_output_indcs[:, :-1].masked_fill(
+                    ~actions_mask[:, 1:], PADDING_SYMBOL
+                )
+                # Collect featurewise sequences
                 target_output_seq = gather(shifted_candidates, target_output_indcs)
                 target_input_seq = torch.zeros(batch_size, output_size, candidate_dim, device=device)
                 target_input_seq[:, 1:] = target_output_seq[:, :-1]
