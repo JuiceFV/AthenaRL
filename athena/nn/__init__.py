@@ -1,5 +1,5 @@
-from athena.nn import functional, utils
-from athena.nn.arch import (Embedding, PointwisePTDecoder,
+from athena.nn import functional, utils  # noqa
+from athena.nn.arch import (Embedding, PointwisePTDecoder,  # noqa
                             PointwisePTDecoderLayer, PTDecoder, PTEncoder,
                             SimplexSampler, TransformerEmbedding,
                             VLPositionalEncoding)

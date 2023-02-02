@@ -4,10 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.modules.transformer as transformer
 
+from typing import Optional
 from athena.nn.arch import Embedding
-
-PADDING_SYMBOL = 0
-DECODER_START_SYMBOL = 1
 
 
 class TransformerEmbedding(Embedding):
@@ -85,15 +83,17 @@ class PTEncoder(nn.Module):
             layer, num_layers=nlayers
         )
 
-    def forward(self, input: torch.Tensor) -> torch.Tensor:
+    def forward(self, input: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
         r"""
         Pass the input tokens embedings through the ``nlayers`` stacked encoder.
 
         Args:
             input (torch.Tensor): Embedded input tokens (items) combined with its positions.
+            mask (Optional[torch.Tensor], optional): Ensures that position is allowed to attend.
 
         Shape:
             - input: :math:`(B, S, d_{model})`
+            - mask: :math:`(B \times nheads, S, S)`
             - output: :math:`(B, S, d_{model})`
 
         Notations:
@@ -106,8 +106,7 @@ class PTEncoder(nn.Module):
         """
         # Adjust the input for the PyTorch format (batch_size as second dim)
         input = input.transpose(0, 1)
-        # w/o mask due to currently have no paddings
-        output: torch.Tensor = self.encoder(input)
+        output: torch.Tensor = self.encoder(input, mask)
         return output.transpose(0, 1)
 
 
@@ -149,32 +148,47 @@ class PTDecoder(nn.Module):
             self.layer, num_layers=nlayers
         )
 
-    def forward(self, target: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        target: torch.Tensor,
+        memory: torch.Tensor,
+        target_mask: Optional[torch.Tensor] = None,
+        memory_mask: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
         r"""
         Pass the input tokens embedings through the ``nlayers`` stacked decoder.
 
         Args:
-            target (torch.Tensor): Embedded output tokens combined with its positions.
-            mask (torch.Tensor): The embedded source tokens from last encoder layer.
+            target (torch.Tensor): The sequence to the decoder layer.
+            memory (torch.Tensor): The sequence from the last encoder layer.
+            tgt_mask (Optional[torch.Tensor], optional): The mask for the target sequence.
+            memory_mask (Optional[torch.Tensor], optional): The mask for the memory sequence.
 
         Shape:
             - target: :math:`(B, T, d_{model})`
-            - mask: :math:`(B, S, d_{model})`
+            - memory: :math:`(B, S, d_{model})`
+            - target_mask: :math:`(B \times nheads, T, T)`
+            - memory_mask: :math:`(B \times nheads, T, S)`
             - output: :math:`(B, T, d_{model})`
 
         Notations:
             - :math:`B` - batch size.
             - :math:`T` - target sequence length.
-            - :math:`d_{model}` - Dimension of learnable weights matrix.
+            - :math:`S` - source sequence length.
+            - :math:`d_{model}` - dimension of learnable weights matrix.
 
         Returns:
             torch.Tensor: Decoded representation of a sequence.
         """
         # Adjust the input for the PyTorch format (batch_size as second dim)
         target = target.transpose(0, 1)
-        mask = mask.transpose(0, 1)
-        # w/o mask due to currently have no paddings
-        output: torch.Tensor = self.decoder(target, mask)
+        memory = memory.transpose(0, 1)
+        output: torch.Tensor = self.decoder(
+            target,
+            memory,
+            target_mask,
+            memory_mask
+        )
         return output.transpose(0, 1)
 
 
@@ -192,8 +206,8 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
         self,
         target: torch.Tensor,
         memory: torch.Tensor,
-        tgt_mask: torch.Tensor,
-        memory_mask: torch.Tensor
+        tgt_mask: Optional[torch.Tensor] = None,
+        memory_mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         r"""
         Re-implement official PyTorch transformer decoder layer.
@@ -217,14 +231,14 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
         Args:
             target (torch.Tensor): The sequence to the decoder layer.
             memory (torch.Tensor): The sequence from the last encoder layer.
-            tgt_mask (torch.Tensor): The mask for the target sequence.
-            memory_mask (torch.Tensor): The mask for the memory sequence.
+            tgt_mask (Optional[torch.Tensor], optional): The mask for the target sequence.
+            memory_mask (Optional[torch.Tensor], optional): The mask for the memory sequence.
 
         Shape:
             - target: :math:`(B, T, d_{model})`
             - memory: :math:`(B, S, d_{model})`
-            - tgt_mask: :math:`(B, T, T)`
-            - memory_mask: :math:`(B, S, S)`
+            - tgt_mask: :math:`(B \times nheads, T, T)`
+            - memory_mask: :math:`(B, T, S)`
             - output: :math:`(B, T, V)`
 
         Notations:
@@ -247,11 +261,8 @@ class PointwisePTDecoderLayer(transformer.TransformerDecoderLayer):
         target = self.norm1(target)
         # Third, multihead attention but the weights are extracted
         # instead of embeddings
-        attn_weights = self.multihead_attn(
-            target,
-            memory,
-            memory,
-            attn_mask=memory_mask
+        attn_weights: Optional[torch.Tensor] = self.multihead_attn(
+            target, memory, memory, attn_mask=memory_mask
         )[1]
         if attn_weights is None:
             raise RuntimeError("Set need_weights=True in PyTorch MultiheadAttention.")
@@ -281,7 +292,7 @@ class PointwisePTDecoder(nn.Module):
         >>> pointwise_decoder = PointwisePTDecoder(512, 2048, 8, 6)
         >>> memory = torch.rand(10, 32, 512)
         >>> target = torch.rand(10, 10, 512)
-        >>> out = pointwise_decoder(target, memory, None, None)
+        >>> out = pointwise_decoder(target, memory)
         >>> out.shape
         torch.Size([10, 10, 34])
 
@@ -320,8 +331,9 @@ class PointwisePTDecoder(nn.Module):
         self,
         target_embed: torch.Tensor,
         memory: torch.Tensor,
-        target2source_mask: torch.Tensor,
-        target2target_mask: torch.Tensor
+        target2source_mask: Optional[torch.Tensor] = None,
+        target2target_mask: Optional[torch.Tensor] = None,
+        pointwise_mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         r"""
         Pass target sequence along with encoder latent state and produce the probability
@@ -333,14 +345,16 @@ class PointwisePTDecoder(nn.Module):
         Args:
             target_embed (torch.Tensor): Embedded target sequence.
             memory (torch.Tensor): Latent state of the encoder.
-            target2source_mask (torch.Tensor): Mask for the latent state.
-            target2target_mask (torch.Tensor): Mask for the target sequence.
+            target2source_mask (Optional[torch.Tensor], optional): Mask for the latent state.
+            target2target_mask (Optional[torch.Tensor], optional): Mask for the target sequence.
+            pointwise_mask (Optional[torch.Tensor], optional): Mask for the last layer.
 
         Shape:
             - target_embed: :math:`(B, T, d_{model})`
             - memory: :math:`(B, S, d_{model})`
             - target2source_mask: :math:`(B, T, S)`
             - target2target_mask: :math:`(B, T, T)`
+            - pointwise_mask: :math:`(B, S)`
             - output: :math:`(B, T, V)`
 
         .. note::
@@ -371,7 +385,7 @@ class PointwisePTDecoder(nn.Module):
                 output,
                 memory,
                 tgt_mask=target2target_mask,
-                memory_mask=target2source_mask
+                memory_mask=pointwise_mask if isinstance(layer, PointwisePTDecoderLayer) else target2source_mask
             )
         # We don't really want to sample the placeholders (padding/starting symbols)
         # NOTE: The final sequence length is num_of_candidates + 2
