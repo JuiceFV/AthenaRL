@@ -11,10 +11,9 @@ import torch
 import torch.nn.functional as F
 from athena.core.dtypes import Seq2SlateOutputArch
 from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode
-from athena.nn.arch.transformer import DECODER_START_SYMBOL
+from athena.nn.utils.transformer import DECODER_START_SYMBOL
 from athena.nn.functional import prod_probas
-from athena.nn.utils.prune import mask_by_index
-from athena.nn.utils.transformer import decoder_mask, subsequent_mask
+from athena.nn.utils.transformer import decoder_mask, subsequent_mask, mask_by_index
 from parameterized import parameterized
 from tests.ranking.utils import (ON_POLICY, create_batch, create_seq2slate_net,
                                  per_item_to_per_seq_log_probas,
@@ -113,8 +112,9 @@ class TestSeq2SlateOnPolicy(unittest.TestCase):
             ]
         )
         target_input_indcs = torch.tensor([[DECODER_START_SYMBOL, 2, 3], [DECODER_START_SYMBOL, 4, 3]])
-        logits[:, :, : 2] = float("-inf")  # TODO: remove after fix mask_by_index
-        masked_logits = mask_by_index(logits, target_input_indcs)
+        mask = torch.zeros_like(logits, dtype=torch.bool)
+        mask[:, :, : 2] = 1  # TODO: remove after fix mask_by_index
+        masked_logits = logits.masked_fill(mask_by_index(mask, target_input_indcs), float("-inf"))
         expected_logits = torch.tensor(
             [
                 [
