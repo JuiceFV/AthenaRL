@@ -28,7 +28,7 @@ def _load_runner_and_config_class(runner: str) -> Tuple[Callable, Type]:
     """Load base runner callable and its configuration template.
 
     Args:
-        runner (str): full path to a runner (including runner name) 
+        runner (str): full path to a runner (including runner name)
 
     Returns:
         _type_: _description_

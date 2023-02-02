@@ -64,12 +64,6 @@ Utilities
 
 From the ``athena.nn.utils`` module
 
-.. autosummary::
-    :toctree: generated
-    :nosignatures:
-
-    prune.mask_by_index
-
 Transformer utilities
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -79,3 +73,4 @@ Transformer utilities
 
     transformer.subsequent_mask
     transformer.decoder_mask
+    transformer.mask_by_index

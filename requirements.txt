@@ -1,12 +1,23 @@
-Cython==0.29.28
-numpy==1.23.1
-git+https://github.com/PyTorchLightning/pytorch-lightning@9b011606f
-petastorm==0.11.4
-# TODO: Probably replace with the latest version (1.9.2)
-# https://github.com/samuelcolvin/pydantic/issues/2042
-pydantic>=1.10.2
-click==8.0.4
-ruamel.yaml==0.17.21
-scikit-learn==0.24.2
-tinydb==4.7.0
+click>=7.0
+numpy>=1.17.2
+pandas>=1.0.3
+pydantic>=1.4
+tinydb>=4.1.1
+tqdm>=4.46.0
+petastorm>=0.9.0
+parameterized>=0.7.4
+ruamel.yaml>=0.15.99
+scipy>=1.3.1
+tensorboard>=1.14
+scikit-learn>=0.20.0
+# Check if the latest works
 pyspark==3.1.1
+# Check if the latest works (run tests)
+pytorch-lightning
+coverage>=5.1
+pytest-xdist>=1.30.0
+pytest>=5.3
+# Check if the latest works
+spark-testing-base==0.10.0
+pytest-cov
+torchrec-nightly-cpu
