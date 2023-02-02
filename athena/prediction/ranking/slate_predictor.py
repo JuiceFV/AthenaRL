@@ -6,6 +6,7 @@ import torch.nn as nn
 from athena.core.dtypes.ranking.seq2slate import (Seq2SlateMode,
                                                   Seq2SlateOutputArch)
 from athena.models.base import BaseModel
+from athena.nn.utils.transformer import PADDING_SYMBOL
 from athena.models.ranking.seq2slate import Seq2SlateTransformerNetwork
 from athena.preprocessing.preprocessor import Preprocessor
 
@@ -67,6 +68,7 @@ class Seq2SlateWithPreprocessor(nn.Module):
         self.candidate_sorted_features = candidate_preprocessor.sorted_features
         self.state_fid2index = state_preprocessor.fid2index
         self.candidate_fid2index = candidate_preprocessor.fid2index
+        self.padding_symbol = PADDING_SYMBOL
 
     def input_prototype(self) -> Tuple[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
         return self.input_prototype_data
@@ -77,11 +79,15 @@ class Seq2SlateWithPreprocessor(nn.Module):
         candidate_with_presence: Tuple[torch.Tensor, torch.Tensor]
     ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor]]:
         preprocessed_state, preprocessed_candidates = self.preprocessor(state_with_presence, candidate_with_presence)
-        max_source_seq_len = preprocessed_candidates.shape[1]
+        batch_size, max_source_seq_len = preprocessed_candidates.shape[:2]
+        candidate_presence = candidate_with_presence[1].prod(dim=2).type(torch.bool)
+        source_input_indcs = torch.arange(max_source_seq_len).repeat(batch_size, 1) + 2
+        source_input_indcs = source_input_indcs.masked_fill(~candidate_presence, self.padding_symbol)
         output = self.model(
             mode=Seq2SlateMode.RANK_MODE.value,
             state=preprocessed_state,
             source_seq=preprocessed_candidates,
+            source_input_indcs=source_input_indcs,
             target_seq_len=max_source_seq_len,
             greedy=self.greedy
         )
