@@ -45,7 +45,6 @@ class Seq2SlateBatchPreprocessor(BatchPreprocessor):
         ).view(batch_size, max_seq_len, -1)[:, :self.num_of_candidates, :]
 
         batch_dict["actions"] = batch["actions"].long()[:, :self.num_of_candidates]
-        batch_dict["actions_mask"] = batch["actions_presence"].type(torch.bool)[:, :self.num_of_candidates]
 
         if not self.on_policy:
             batch_dict["logged_propensities"] = batch["actions_probability"].unsqueeze(1)

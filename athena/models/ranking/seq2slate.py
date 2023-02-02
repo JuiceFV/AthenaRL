@@ -358,21 +358,20 @@ class Seq2SlateTransformerModel(nn.Module):
         # Obtain the latent memory state of the source sequence and state.
         # Also, extract the memory mask that will be used in the decoding process.
         # memory shape: batch_size, source_seq_len, dim_model
-        # source2source_mask shape: batch_size * nheads, source_seq_len, source_seq_len
-        memory, source2source_mask = self.encode(state, source_seq, source_input_indcs)
+        memory = self.encode(state, source_seq, source_input_indcs)
 
         if self.output_arch == Seq2SlateOutputArch.FRECHET_SORT and greedy:
             # Greedy decoding implies one-step decoding that produces probabilities
             # of items being in their places. Re-arrange the sequence according to
             # these probabilities.
             target_output_indcs, ordered_per_item_probas = self._greedy_decoding(
-                state, memory, featurewise_seq, source2source_mask, target_seq_len
+                state, memory, featurewise_seq, target_seq_len
             )
         elif self.output_arch == Seq2SlateOutputArch.ENCODER_SCORE:
             # use only the encode process one doesn't consider
             # high-order items' interactions
             target_output_indcs, ordered_per_item_probas = self._encoder_decoding(
-                memory, source2source_mask, target_seq_len
+                memory, target_seq_len
             )
         else:
             if greedy is None:
@@ -380,7 +379,7 @@ class Seq2SlateTransformerModel(nn.Module):
                     "Autoregressive decoding implies greedy way to select adjacent item"
                 )
             target_output_indcs, ordered_per_item_probas = self._autoregressive_decoding(
-                state, memory, featurewise_seq, source2source_mask, target_seq_len, greedy
+                state, memory, featurewise_seq, target_seq_len, greedy
             )
         # Sequence probability is the product of each sequence's individual
         ordered_per_seq_probas = prod_probas(ordered_per_item_probas, target_output_indcs)
@@ -393,12 +392,7 @@ class Seq2SlateTransformerModel(nn.Module):
             encoder_scores=self._output_placeholder
         )
 
-    def _encoder_decoding(
-        self,
-        memory: torch.Tensor,
-        source_input_indcs: torch.Tensor,
-        target_seq_len: int
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _encoder_decoding(self, memory: torch.Tensor, target_seq_len: int) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""
         Arange items according to its encoder scores
         i.e. self attention scores excluding high-order
@@ -461,7 +455,6 @@ class Seq2SlateTransformerModel(nn.Module):
         state: torch.Tensor,
         memory: torch.Tensor,
         featurewise_seq: torch.Tensor,
-        source2source_mask: torch.Tensor,
         target_seq_len: int,
         greedy: bool
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -520,7 +513,7 @@ class Seq2SlateTransformerModel(nn.Module):
             # taking higher order items' interactions into account.
             # probas shape: batch_size, step + 1, num_of_candidates
             probas = self.decode(
-                memory, state, source2source_mask, target_input_indcs, target_input_seq
+                memory, state, target_input_indcs, target_input_seq
             )
             # Choose most probable (or sampling) item at each step.
             # Obviously it could vary step to step
@@ -543,7 +536,6 @@ class Seq2SlateTransformerModel(nn.Module):
         state: torch.Tensor,
         memory: torch.Tensor,
         featurewise_seq: torch.Tensor,
-        source2source_mask: torch.Tensor,
         target_seq_len: int
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""
@@ -589,7 +581,7 @@ class Seq2SlateTransformerModel(nn.Module):
         # each target sequnce position.
         # probs shape: batch_size, num_of_candidates
         probas = self.decode(
-            memory, state, source2source_mask, target_input_indcs, target_input_seq
+            memory, state, target_input_indcs, target_input_seq
         )[:, -1, :]
 
         # arange the items in the greedy way
@@ -651,7 +643,7 @@ class Seq2SlateTransformerModel(nn.Module):
         """
         # Transform source sequence into embeddings
         # shape: batch_size, source_seq_len, dim_model
-        memory, source2source_mask = self.encode(state, source_seq, source_input_indcs)
+        memory = self.encode(state, source_seq, source_input_indcs)
         target_seq_len = target_input_seq.shape[1]
         source_seq_len = source_seq.shape[1]
         if target_seq_len > source_seq_len:
@@ -662,7 +654,7 @@ class Seq2SlateTransformerModel(nn.Module):
         # Extract the probability distribution over items
         # decoder_probs shape: batch_size, target_seq_len, num_of_candidates
         probas = self.decode(
-            memory, state, source2source_mask, target_input_indcs, target_input_seq
+            memory, state, target_input_indcs, target_input_seq
         )
         if mode == self._per_item_log_prob_dist_mode_val:
             # to prevent log(P) = -inf, clamp it with extremely small value
@@ -720,7 +712,7 @@ class Seq2SlateTransformerModel(nn.Module):
         """
         # encode source sequence into model memory state
         # shape: batch_size, source_seq_len, dim_model
-        memory, _ = self.encode(state, source_seq, source_input_indcs)
+        memory = self.encode(state, source_seq, source_input_indcs)
         # order the memory scores according to the target_output_indcs
         # excluding starting and padding symbols
         # shape: batch_size, target_seq_len, dim_model
@@ -742,7 +734,7 @@ class Seq2SlateTransformerModel(nn.Module):
         state: torch.Tensor,
         source_seq: torch.Tensor,
         source_input_indcs: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> torch.Tensor:
         r"""
         Seq2Slate encoding process. The process consists of two steps:
 
@@ -790,13 +782,12 @@ class Seq2SlateTransformerModel(nn.Module):
         # source2source_mask shape: batch_size * nheads, source_seq_len, source_seq_len
         source2source_mask = encoder_mask(source_input_indcs, self.nheads, self._padding_symbol)
         # Pass through the stack of encoder's layers
-        return self.encoder(source_state_embed, source2source_mask), source2source_mask
+        return self.encoder(source_state_embed, source2source_mask)
 
     def decode(
         self,
         memory: torch.Tensor,
         state: torch.Tensor,
-        source2source_mask: torch.Tensor,
         target_input_indcs: torch.Tensor,
         target_input_seq: torch.Tensor
     ) -> torch.Tensor:
@@ -861,19 +852,16 @@ class Seq2SlateTransformerModel(nn.Module):
             input_scores = torch.zeros(batch_size, target_seq_len, num_of_candidates).to(
                 encoder_scores.device
             )
-            pointwise_mask = torch.zeros(
+            target2source_mask = torch.zeros(
                 batch_size, target_seq_len, num_of_candidates, dtype=torch.bool
             ).to(encoder_scores.device)
-            pointwise_mask[:, :, :2] = 1
-            pointwise_mask = mask_by_index(pointwise_mask, target_input_indcs)
-            pointwise_mask[:, :, 2:] = pointwise_mask[:, :, 2:].masked_fill(
-                source2source_mask[:batch_size * self.nheads:self.nheads, :target_seq_len, :], 1
-            )
+            target2source_mask[:, :, :2] = 1
+            target2source_mask = mask_by_index(target2source_mask, target_input_indcs)
             # Probability distribution over each symbol for each position
             input_scores[:, :, 2:] = encoder_scores.repeat(1, target_seq_len).reshape(
                 batch_size, target_seq_len, source_seq_len
             )
-            input_scores = input_scores.masked_fill(pointwise_mask, float("-inf"))
+            input_scores = input_scores.masked_fill(target2source_mask, float("-inf"))
             # Normalize the scores within [0;1]
             probas = torch.softmax(input_scores, dim=2)
         elif self.output_arch == Seq2SlateOutputArch.AUTOREGRESSIVE:
@@ -899,18 +887,12 @@ class Seq2SlateTransformerModel(nn.Module):
             target2target_mask, target2source_mask = decoder_mask(
                 memory, target_input_indcs, self.nheads, self._padding_symbol
             )
-            # The last layer in decoder is pointwise layer, meaning that
-            # its values will be used directly to compute propensity.
-            # Consequently, we need a mask that symmetrically erases paddings.
-            # shape: batch_size * nheads, target_seq_len, source_seq_len
-            pointwise_mask = target2source_mask | source2source_mask[:, :target_seq_len, :]
             # Apply decoder layers
             probas = self.decoder(
-                target_embed, memory, target2source_mask, target2target_mask, pointwise_mask
+                target_embed, memory, target2source_mask, target2target_mask
             )
         else:
             raise NotImplementedError()
-        probas = probas.nan_to_num(0.0)
         return probas
 
 

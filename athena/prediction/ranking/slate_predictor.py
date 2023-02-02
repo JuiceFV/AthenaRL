@@ -80,9 +80,7 @@ class Seq2SlateWithPreprocessor(nn.Module):
     ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor]]:
         preprocessed_state, preprocessed_candidates = self.preprocessor(state_with_presence, candidate_with_presence)
         batch_size, max_source_seq_len = preprocessed_candidates.shape[:2]
-        candidate_presence = candidate_with_presence[1].prod(dim=2).type(torch.bool)
         source_input_indcs = torch.arange(max_source_seq_len).repeat(batch_size, 1) + 2
-        source_input_indcs = source_input_indcs.masked_fill(~candidate_presence, self.padding_symbol)
         output = self.model(
             mode=Seq2SlateMode.RANK_MODE.value,
             state=preprocessed_state,

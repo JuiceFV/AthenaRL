@@ -25,9 +25,7 @@ def seq2slate_ip2rnaking_ip(
         candidate_input_prototype[0].view(batch_size * num_of_candidates, candidate_dim),
         candidate_input_prototype[1].view(batch_size * num_of_candidates, candidate_dim)
     ).view(batch_size, num_of_candidates, -1)
-    candidate_presence = candidate_input_prototype[1].prod(dim=2).type(torch.bool)
     source_input_indcs = torch.arange(num_of_candidates).repeat(batch_size, 1) + 2
-    source_input_indcs = source_input_indcs.masked_fill(~candidate_presence, PADDING_SYMBOL)
     return adt.PreprocessedRankingInput.from_tensors(
         state=preprocessed_state,
         source_seq=preprocessed_candidates,

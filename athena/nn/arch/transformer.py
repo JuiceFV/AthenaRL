@@ -332,8 +332,7 @@ class PointwisePTDecoder(nn.Module):
         target_embed: torch.Tensor,
         memory: torch.Tensor,
         target2source_mask: Optional[torch.Tensor] = None,
-        target2target_mask: Optional[torch.Tensor] = None,
-        pointwise_mask: Optional[torch.Tensor] = None
+        target2target_mask: Optional[torch.Tensor] = None
     ) -> torch.Tensor:
         r"""
         Pass target sequence along with encoder latent state and produce the probability
@@ -347,14 +346,12 @@ class PointwisePTDecoder(nn.Module):
             memory (torch.Tensor): Latent state of the encoder.
             target2source_mask (Optional[torch.Tensor], optional): Mask for the latent state.
             target2target_mask (Optional[torch.Tensor], optional): Mask for the target sequence.
-            pointwise_mask (Optional[torch.Tensor], optional): Mask for the last layer.
 
         Shape:
             - target_embed: :math:`(B, T, d_{model})`
             - memory: :math:`(B, S, d_{model})`
             - target2source_mask: :math:`(B, T, S)`
             - target2target_mask: :math:`(B, T, T)`
-            - pointwise_mask: :math:`(B, S)`
             - output: :math:`(B, T, V)`
 
         .. note::
@@ -385,7 +382,7 @@ class PointwisePTDecoder(nn.Module):
                 output,
                 memory,
                 tgt_mask=target2target_mask,
-                memory_mask=pointwise_mask if isinstance(layer, PointwisePTDecoderLayer) else target2source_mask
+                memory_mask=target2source_mask
             )
         # We don't really want to sample the placeholders (padding/starting symbols)
         # NOTE: The final sequence length is num_of_candidates + 2
