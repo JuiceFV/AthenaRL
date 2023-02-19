@@ -15,7 +15,6 @@ from athena.data.manual_datamodule import ManualDataModule
 from athena.model_managers.manager import ModelManager
 from athena.preprocessing.batch_preprocessor import Seq2SlateBatchPreprocessor
 from athena.preprocessing.preprocessor import Preprocessor
-from athena.preprocessing.transforms.petastorm import VectorPadding
 from athena.report.seq2slate_reporter import Seq2SlateReporter
 
 
@@ -103,17 +102,6 @@ class Seq2SlateDataModule(ManualDataModule):
             reward_options=reward_options,
             extra_columns=[InputColumn.STATE_SEQUENCE_FEATURES]
         )
-
-    def build_transformation(self) -> VectorPadding:
-        keys = [InputColumn.STATE_SEQUENCE_FEATURES, InputColumn.STATE_SEQUENCE_FEATURES + "_presence"]
-        #: FIXME: Pbly there is a way to get max sequence length w/o spark
-        max_seq_len = self.fapper.get_max_sequence_len(
-            table_name=self.input_table_spec.table_name,
-            col_name=InputColumn.STATE_SEQUENCE_FEATURES
-        )
-        candidate_dim = len(self.candidate_normalization_dict.dense_normalization_params)
-        max_length = max_seq_len * candidate_dim
-        return VectorPadding(keys=keys, max_lengths=[max_length, max_length])
 
     def build_batch_preprocessor(self) -> Seq2SlateBatchPreprocessor:
         candidate_dim = len(self.candidate_normalization_dict.dense_normalization_params)
