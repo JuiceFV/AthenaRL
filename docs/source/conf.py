@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath('./'))
 sys.path.insert(0, os.path.abspath('../../'))
 
 import digi_sphinx_theme as theme
-from digi_sphinx_theme.linkcode import bb_linkcode_helper
+from digi_sphinx_theme.linkcode import linkcode_helper
 
 import athena as pkg
 
@@ -54,6 +54,7 @@ needs_sphinx = '4.0.2'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
+    'sphinx.ext.autodoc.typehints',
     'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
@@ -128,36 +129,38 @@ autodoc_docstring_signature = True
 # a list of builtin themes.
 #
 
-bitbucket_user = 'Diginetica'
-bitbucket_repo = 'nastenka-solnishko'
-bitbucket_version = 'init'
+vsc_user = 'diginetica/science'
+vsc_repo = 'nastenka-solnishko'
+vsc_version = 'init'
 
-bitbucket_url = f'https://bitbucket.org/{bitbucket_user}/{bitbucket_repo}/'
+vsc_url = f'https://gitlab.diginetica.net/{vsc_user}/{vsc_repo}/'
 
 html_theme = 'digi_sphinx_theme'
 html_theme_path = [theme.get_html_theme_path()]
 html_context = {
-    'display_bitbucket': True,
-    'bitbucket_user': bitbucket_user,
-    'bitbucket_repo': bitbucket_repo,
-    'bitbucket_version': bitbucket_version,
+    'display_gitlab': True,
+    'gitlab_user': vsc_user,
+    'gitlab_repo': vsc_repo,
+    'gitlab_version': vsc_version,
     "conf_py_path": "/docs/source/",  # Path in the checkout to the docs root
 }
 html_theme_options = {
-    'bitbucket_url': bitbucket_url,
+    'bitbucket_url': vsc_url,
     'doc_items': {
         'Nastenka Solnishko': '/',
     }
 }
 
+
 def linkcode_resolve(domain, info):
-    return bb_linkcode_helper(
+    return linkcode_helper(
         domain, info,
         prefix=pkg_location,
-        bitbucket_url=bitbucket_url,
-        bitbucket_version=bitbucket_version
+        vsc_url=vsc_url,
+        vsc_version=vsc_version
     )
-    
+
+
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
