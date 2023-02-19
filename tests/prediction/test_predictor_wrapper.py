@@ -4,7 +4,6 @@ import random
 import athena.core.dtypes as adt
 
 from typing import Tuple
-from athena.nn.utils.transformer import PADDING_SYMBOL
 from athena.core.dtypes import Seq2SlateOutputArch
 from athena.core.dtypes.ranking.seq2slate import Seq2SlateMode
 from athena.models.ranking.seq2slate import Seq2SlateTransformerNetwork
