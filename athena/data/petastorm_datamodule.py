@@ -15,7 +15,7 @@ class PetastormLightningDataModule(pl.LightningDataModule):
         train_data: Dataset,
         eval_data: Dataset,
         test_data: Dataset,
-        transformation: Union[Compose, Transformation],
+        transformation: Optional[Union[Compose, Transformation]],
         batch_preprocessor: BatchPreprocessor,
         reader_options: ReaderOptions
     ) -> None:

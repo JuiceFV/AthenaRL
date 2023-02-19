@@ -36,11 +36,11 @@ def collate_and_preprocess(
 
 
 def arbitrary_transform(
-    transformation: Union[Compose, Transformation]
-) -> Callable[[pd.DataFrame], pd.DataFrame]:
+    transformation: Optional[Union[Compose, Transformation]]
+) -> Optional[Callable[[pd.DataFrame], pd.DataFrame]]:
     def transfrom_fn(table: pd.DataFrame) -> pd.DataFrame:
         return transformation(table)
-    return transfrom_fn
+    return transfrom_fn if transformation is not None else None
 
 
 class AthenaDataModule(pl.LightningDataModule):
