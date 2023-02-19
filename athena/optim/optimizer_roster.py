@@ -1,7 +1,7 @@
 """The basic torch optimizers or instantiated from ones are wrapped with pydantic dataclass
 around. Besides, these optimizers form the registry where the only could be picked.
-Since we don't know which network parameters we want to optimize, we create a factory 
-one contains following optimizers: Adadelta, Adagrad, Adam, AdamW, SparseAdam, Adamax, 
+Since we don't know which network parameters we want to optimize, we create a factory
+one contains following optimizers: Adadelta, Adagrad, Adam, AdamW, SparseAdam, Adamax,
 ASGD, SGD, RAdam, Rprop, RMSprop, NAdam, LBFGS. Due to the factory bases on class implementation
 one is specified via YAML config, some of these optimizers were redefined s.t. we can handle
 their parameters' type like `tuple` and `None`.
