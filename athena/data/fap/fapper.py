@@ -1,5 +1,5 @@
 import abc
-from typing import Dict, Union
+from typing import Dict, Union, Optional, List, Tuple
 
 import pandas as pd
 import pyspark.sql as pss
@@ -8,25 +8,33 @@ from athena.core.logger import LoggerMixin
 from athena.core.parameters import NormalizationParams
 from athena.core.registry import RegistryMeta
 from athena.core.singleton import Singleton
+from athena.core.dtypes.rl.options import RewardOptions
+from athena.core.dtypes.preprocessing.options import PreprocessingOptions
 
 DataFrameUnion = Union[pss.DataFrame, pd.DataFrame]
 
 
 class FAPper(LoggerMixin, metaclass=type("RegSingleton", (RegistryMeta, Singleton), {})):
     @abc.abstractmethod
-    def fap(self, *args, **kwargs) -> str:
+    def fap(
+        self,
+        table_name: str,
+        discrete_actions: bool,
+        actions_space: Optional[List[str]] = None,
+        sample_range: Optional[Tuple[float, float]] = None,
+        reward_options: Optional[RewardOptions] = None,
+        extra_columns: List[str] = []
+    ) -> str:
         pass
 
     @abc.abstractmethod
-    def identify_normalization_params(self, *args, **kwargs) -> Dict[int, NormalizationParams]:
-        pass
-
-    @abc.abstractmethod
-    def get_max_sequence_len(self, *args, **kwargs) -> int:
-        pass
-
-    @abc.abstractmethod
-    def get_element_dim(self, *args, **kwargs) -> int:
+    def identify_normalization_params(
+        self,
+        table_name: str,
+        col_name: str,
+        preprocessing_options: PreprocessingOptions,
+        seed: Optional[int] = None
+    ) -> Dict[int, NormalizationParams]:
         pass
 
     @staticmethod
@@ -60,7 +68,7 @@ class FAPper(LoggerMixin, metaclass=type("RegSingleton", (RegistryMeta, Singleto
         pass
 
     @abc.abstractmethod
-    def _process_extra_columns(self, df: DataFrameUnion, col_name: str) -> DataFrameUnion:
+    def _process_extra_columns(self, *args, **kwargs) -> DataFrameUnion:
         pass
 
     @abc.abstractmethod

@@ -42,15 +42,6 @@ class SparkFapper(FAPper):
     def session(self) -> SparkSession:
         return self._session
 
-    def get_max_sequence_len(self, table_name: str, col_name: str) -> int:
-        df = scm.query_original_table(self._session, table_name)
-        return scm.get_max_sequence_length(df, col_name)
-
-    def get_element_dim(self, table_name: str, col_name: str, is_sequence: bool = False) -> int:
-        df = scm.query_original_table(self._session, table_name)
-        distinct_keys = srl.infer_trajectory_entity_names(df, col_name, is_sequence=is_sequence)
-        return len(distinct_keys)
-
     def identify_normalization_params(
         self,
         table_name: str,
@@ -221,7 +212,8 @@ class SparkFapper(FAPper):
     @staticmethod
     def _process_state_sequence_features(df: DataFrame) -> DataFrame:
         keys = srl.infer_nontrajectory_entity_names(df, "state_sequence_features", is_sequence=True)
-        df = scm.make_sparse2dense(df, "state_sequence_features", keys, is_sequence=True)
+        max_seq_len = scm.get_max_sequence_length(df, "state_sequence_features")
+        df = scm.make_sparse2dense(df, "state_sequence_features", keys, max_seq_len)
         return df
 
     @staticmethod

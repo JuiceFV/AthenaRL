@@ -64,7 +64,7 @@ def make_sparse2dense(
     df: DataFrame,
     col_name: str,
     possible_keys: List[Union[int, str]],
-    is_sequence: bool = False
+    max_seq_len: Optional[int] = None
 ) -> DataFrame:
     output_type = StructType(
         [
@@ -88,8 +88,8 @@ def make_sparse2dense(
     def sequence_sparse2dense(sequence_col: List[Dict[Union[int, str], Number]]) -> Tuple[List[bool], List[float]]:
         if not isinstance(sequence_col, list):
             raise TypeError(f"{sequence_col} has type {type(sequence_col)} and is not a list.")
-        presence = [False] * (len(possible_keys) * len(sequence_col))
-        dense = [0.0] * (len(possible_keys) * len(sequence_col))
+        presence = [False] * (len(possible_keys) * max_seq_len)
+        dense = [0.0] * (len(possible_keys) * max_seq_len)
         dense_pos = 0
         for item in sequence_col:
             for key in possible_keys:
@@ -100,7 +100,7 @@ def make_sparse2dense(
                 dense_pos += 1
         return presence, dense
 
-    sparse2dense_udf = udf(sequence_sparse2dense if is_sequence else map_sparse2dense, output_type)
+    sparse2dense_udf = udf(sequence_sparse2dense if max_seq_len is not None else map_sparse2dense, output_type)
     df = df.withColumn(col_name, sparse2dense_udf(col_name))
     df = df.withColumn(f"{col_name}_presence", col(f"{col_name}.presence"))
     df = df.withColumn(col_name, col(f"{col_name}.dense"))
