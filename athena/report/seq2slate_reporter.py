@@ -7,7 +7,7 @@ from athena.report import ReporterBase
 
 
 class Seq2SlateReporter(ReporterBase):
-    def __init__(self, report_interval: int = 1) -> None:
+    def __init__(self, report_interval: int = 10000) -> None:
         self.report_interval = report_interval
         super().__init__(self.value_list_monitors, self.aggregating_monitors)
 

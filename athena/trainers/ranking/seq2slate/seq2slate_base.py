@@ -206,7 +206,8 @@ class Seq2SlateTrainer(AthenaLightening):
     def on_train_batch_start(self, batch: adt.PreprocessedRankingInput, batch_idx: int) -> Optional[int]:
         if self.params.on_policy:
             with torch.no_grad():
-                num_of_candidates = self.reinforce.max_source_seq_len
+                # TODO: Remove once padding issue is resolved
+                num_of_candidates = min(self.reinforce.max_source_seq_len, batch.target_output_indcs.size(1))
                 model_propensity, model_actions = _rank_on_policy(
                     self.reinforce, batch, num_of_candidates, False
                 )

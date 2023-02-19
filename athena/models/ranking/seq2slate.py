@@ -192,9 +192,6 @@ class Seq2SlateTransformerModel(nn.Module):
         self._initialize_learnable_params()
 
     def _initialize_learnable_params(self):
-        r"""
-        Initialize parameters with `Glorot / fan_avg <https://proceedings.mlr.press/v9/glorot10a/glorot10a.pdf>`_.
-        """
         for param in self.parameters():
             if param.dim() > 1:
                 nn.init.xavier_uniform_(param)
@@ -218,15 +215,14 @@ class Seq2SlateTransformerModel(nn.Module):
               :class:`athena.core.dtypes.ranking.seq2slate.Seq2SlateMode`.
             state (torch.Tensor): Current actions independent state.
             source_seq (torch.Tensor): Featurewised source sequence.
-            source_input_indcs (torch.Tensor): The indices of original sequence.
+            source_input_indcs (torch.Tensor): The original actions.
             target_seq_len (Optional[int], optional): The length of output sequence.
               Only used in RANK mode. Defaults to ``None``.
             target_input_seq (Optional[torch.Tensor], optional): Target sequence to be decoded.
               Used in TEACHER FORCING or REINFORCE mode. Defaults to ``None``.
             target_input_indcs (Optional[torch.Tensor], optional): Target input actions.
               Used in TEACHER FORCING or REINFORCE mode. Defaults to ``None``.
-            target_output_indcs (Optional[torch.Tensor], optional): Target output actions.
-              Defaults to ``None``.
+            target_output_indcs (Optional[torch.Tensor], optional): Target output actions. Defaults to ``None``.
             greedy (Optional[bool], optional): Greedy way of sampling. Defaults to ``None``.
 
         Shape:
@@ -326,12 +322,14 @@ class Seq2SlateTransformerModel(nn.Module):
         Args:
             state (torch.Tensor): Current actions independent state.
             source_seq (torch.Tensor): Featurewised source sequence.
+            source_input_indcs: (torch.Tensor): The original actions.
             target_seq_len (int): Length of the target sequence.
             greedy (bool): Greedy way of sampling.
 
         Shape:
             - state: :math:`(B, H)`
             - source_seq: :math:`(B, S, C)`
+            - source_input_indcs: :math:`(B, S)`
 
         Notations:
             - :math:`B` - batch size.
@@ -356,7 +354,6 @@ class Seq2SlateTransformerModel(nn.Module):
         # TODO: probably it worths to create learnable vectors for the start/padding symbol
         featurewise_seq[:, 2:, :] = source_seq
         # Obtain the latent memory state of the source sequence and state.
-        # Also, extract the memory mask that will be used in the decoding process.
         # memory shape: batch_size, source_seq_len, dim_model
         memory = self.encode(state, source_seq, source_input_indcs)
 
@@ -394,23 +391,13 @@ class Seq2SlateTransformerModel(nn.Module):
 
     def _encoder_decoding(self, memory: torch.Tensor, target_seq_len: int) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""
-        Arange items according to its encoder scores
-        i.e. self attention scores excluding high-order
-        interactions between the items in sequence.
-
-        .. math::
-
-            \{e_i\}_{i=1}^m = E(\{x_i\}_{i=1}^{m})
-
-        Thus encoder exhibits most attractive items and blends the opposite
-        ones. However, we miss high-order interaction between the elements
-        by erasing the decoding step. In other words, we don't consider other
-        permutations relying only on the original ordering, which isn't the
-        "best" *a priori*.
+        Decode a sequence using encoder output only. This method of decoding
+        doesn't incorporate high-order interactions. It only estimates the probability
+        of an item taking its original position correctly, relying on the interrelations
+        against other items in a sequence.
 
         Args:
-            memory (torch.Tensor): Encoder output depicts how important
-              each item in the sequence at the current time step.
+            memory (torch.Tensor): Encoder output.
             target_seq_len (int): Length of the target sequence.
 
         Shape:
@@ -434,9 +421,8 @@ class Seq2SlateTransformerModel(nn.Module):
             batch_size, target_seq_len, num_of_candidates, device=device
         )
         # memory is the encoder output intended to be incorporated
-        # in decoding process therefore its shape is: batch_size,
-        # src_seq_len, dim_model. But we want use them directly
-        # s.t. embed them into 1D making their shape batch_size, src_seq_len
+        # in the decoding process therefore its shape is: batch_size, src_seq_len, dim_model.
+        # But we want use them directly s.t. embed them into 1D making their shape: batch_size, src_seq_len
         encoder_scores = self.encoder_scorer(memory).squeeze(dim=2)
         target_output_indcs = torch.argsort(
             encoder_scores, dim=1, descending=True
@@ -546,14 +532,12 @@ class Seq2SlateTransformerModel(nn.Module):
             state (torch.Tensor): Current actions independent state.
             memory (torch.Tensor): Encoder output. Items cross-attention scores.
             featurewise_seq (torch.Tensor): The source sequence adjusted for the learning purpose.
-            source2source_mask (torch.Tensor): Memory mask from encoder.
             target_seq_len (int): Length of the target sequence.
 
         Shape:
             - state: :math:`(B, H)`
             - memory: :math:`(B, S, d_{model})`
             - featurewise_seq: :math:`(B, S + 2, C)`
-            - source2source_mask: :math:`(B, S, S)`
             - output: :math:`((B, T), (B, T))`
 
         Notations:
@@ -565,21 +549,18 @@ class Seq2SlateTransformerModel(nn.Module):
             - :math:`d_{model}` - Dimension of learnable weights matrix.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: Re-aranged permutation and generative item probabilitites
-            in the permutation.
+            Tuple[torch.Tensor, torch.Tensor]: Re-aranged permutation and generative item probabilitites.
         """
         device = featurewise_seq.device
         batch_size, num_of_candidates = featurewise_seq.shape[:2]
         target_input_indcs = torch.full(
             (batch_size, 1), self._decoder_start_symbol, dtype=torch.long, device=device
         )
-        # To produce the distribution over all items at once take
-        # only the starting symbol as an input sequence.
+        # To produce the distribution over all items at once take only the starting symbol as the input sequence.
         target_input_seq = gather(featurewise_seq, target_input_indcs)
 
-        # Decoder outputs probabilities over each symbol (item) for
-        # each target sequnce position.
-        # probs shape: batch_size, num_of_candidates
+        # Decoder outputs probabilities over each symbol (item) for each target sequnce position.
+        # shape: batch_size, num_of_candidates
         probas = self.decode(
             memory, state, target_input_indcs, target_input_seq
         )[:, -1, :]
@@ -587,10 +568,8 @@ class Seq2SlateTransformerModel(nn.Module):
         # arange the items in the greedy way
         target_output_indcs = torch.argsort(probas, dim=1, descending=True)[:, :target_seq_len]
 
-        # Due to it's greedy ranking we don't really
-        # care about already choosen items. Further
-        # we consider only remaining items. Therefore
-        # we set items' probas to 1.
+        # Greedy sampling draws the most probable item at each time step.
+        # Therefore, each item holds its position with a probability of 1.0
         ordered_per_item_probas = torch.zeros(
             batch_size, target_seq_len, num_of_candidates, device=device
         ).scatter(2, target_output_indcs.unsqueeze(2), 1.0)
