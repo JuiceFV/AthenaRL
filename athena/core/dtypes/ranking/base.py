@@ -12,73 +12,54 @@ from athena.nn.utils.transformer import (DECODER_START_SYMBOL, PADDING_SYMBOL,
 
 @dataclass
 class PreprocessedRankingInput(TensorDataClass):
-    """The data format dedicated as input to a ranking
-    model. Tentatiely, the data must be preprocessed.
+    """The data format dedicated as input to a ranking model. Tentatiely, the data must be preprocessed.
 
     .. note::
 
-        Due to ranking algorithms are so diverse there are
-        only two mandatory fields, while others are Optional.
+        Due to ranking algorithms are so diverse there are only two mandatory fields, while others are Optional.
 
-        1. State representation. State normally is used in RL
-        to represent action independent observable space relatively
-        to the agent. As to the ranking problem there is no
-        such space, but we can reformulate it the problem as user
-        specific problem, by adding user vector.
+        1. State representation. A state is typically used in RL to represent action-independent observable space
+           relative to the agent. There is no such space regarding the ranking problem, but we can reformulate the
+           problem as a user-specific problem by adding a user vector.
 
-        2. Featurewise sequence. It's obviously that we need input
-        sequence which should be ranked or re-ranked.
+        2. Featurewise sequence. Obviously, we need an input sequence that should be ranked or re-ranked.
 
     .. warning::
 
-        Note that in the ``target_*`` indices are shifted by two,
-        due to the padding and start symbol.
+        Note that in the ``target_*`` indices are shifted by two, due to the padding and start symbol.
     """
 
-    #: The state one depicts rich representation
-    #: of a sequence. :math:`e = E(\{x_i\}_{i=0}^n)`.
-    #: Originally in ranking problem only documents
-    #: are represented in the state, but RecSys may
-    #: enrich it with an user representation.
+    #: Action-independent state of an environment.
     state: Feature
 
-    #: Sequence feature-wise representation :math:`\{x_i\}_{i=1}^n`.
+    #: Sequence featurewise representation.
     source_seq: Feature
 
-    #: Mask for source sequences' items, especially
-    #: required for the reward models. Gives a hint
-    #: to which items we should pay attention.
+    #: Mask for source sequences' items.
     source2source_mask: Optional[torch.Tensor] = None
 
-    #: Target sequence passed to the decoder.
-    #: Used in weak supervised and teacher forcing learning.
+    #: Featurewise target sequence passed to a decoder.
     target_input_seq: Optional[Feature] = None
 
-    #: Target sequence after passing throughout the decoder
-    #: and stacked fully-connected layers.
+    #: Featurewise target sequence that is sampled by a decoder.
     target_output_seq: Optional[Feature] = None
 
-    #: Mask for target sequences' items, s.t.
-    #: each item of a sequence has its own set of
-    #: items to pay attention to.
+    #: Mask for target sequences' items.
     target2target_mask: Optional[torch.Tensor] = None
 
     #: Reward calculated for a permutation.
-    #: Theoretically, reward could be calculated as follows:
-    #: :math:`P(s) = \prod_{i=1}^{|s|}{P(s_i)}`.
     slate_reward: Optional[torch.Tensor] = None
 
-    #: Reward calculated for an item at given position.
-    #: Theoretically, it's presented as :math:`P(s_i)`.
+    #: Reward calculated for an item being in a given position.
     position_reward: Optional[torch.Tensor] = None
 
-    #: Source sequence arangement indices.
+    #: Source sequence arrangement indices.
     source_input_indcs: Optional[torch.Tensor] = None
 
-    #: Target sequence indices passed to the decoder.
+    #: Target sequence indices passed to a decoder.
     target_input_indcs: Optional[torch.Tensor] = None
 
-    #: Re-aranged target sequence after decoder proceeds.
+    #: Re-aranged target sequence once a decoder proceeds.
     target_output_indcs: Optional[torch.Tensor] = None
 
     #: The probabilities of each item in the output sequence to be placed.
@@ -96,7 +77,7 @@ class PreprocessedRankingInput(TensorDataClass):
     #: Ground-truth target input sequence representaation.
     gt_target_output_seq: Optional[Feature] = None
 
-    #: Extra infromation
+    #: Extra infromation is more data understending tool.
     extras: Optional[ExtraData] = field(default_factory=ExtraData)
 
     def batch_size(self) -> int:
@@ -127,9 +108,7 @@ class PreprocessedRankingInput(TensorDataClass):
             actions (Optional[torch.Tensor], optional): Target arangment "actions". Defaults to None.
             gt_actions (Optional[torch.Tensor], optional): Ground truth actions. Defaults to None.
             logged_propensities (Optional[torch.Tensor], optional): Propensities predicted by base model.
-                Defaults to None.
             slate_reward (Optional[torch.Tensor], optional): Total reward calculated for a permutation.
-                Defaults to None.
             position_reward (Optional[torch.Tensor], optional): Item-at-position reward. Defaults to None.
             extras: (Optional[ExtraData], optional): Additional batch information. Defaults to None.
 
@@ -153,14 +132,14 @@ class PreprocessedRankingInput(TensorDataClass):
 
         Notations:
             - :math:`B` - batch size.
-            - :math:`E` - state vector dinmensionality.
+            - :math:`E` - state vector dimensionality.
             - :math:`N` - number of candidates for a position.
             - :math:`C` - a candidate dimensionality.
             - :math:`S` - source sequence length.
 
 
         Returns:
-            PreprocessedRankingInput: Input processed s.t. it could be used in ranking models.
+            PreprocessedRankingInput: Input processed s.t. it could be used in the ranking models.
         """
         if len(state.shape) != 2 or len(candidates.shape) != 3:
             raise ValueError(
@@ -221,12 +200,10 @@ class PreprocessedRankingInput(TensorDataClass):
                     (torch.zeros(batch_size, 2, candidate_dim, device=device), candidates), dim=1
                 )
 
-                # Shift decoder input/output indices over 2 positions
-                # to incorporate start/padding symbols
+                # Shift decoder input/output indices for 2 positions to incorporate start/padding symbols
                 target_output_indcs = actions + 2
                 target_input_indcs = torch.full((batch_size, output_size), DECODER_START_SYMBOL, device=device)
                 # Input sequence starts with DECODER_START_SYMBOL
-                # so that MHA knows how does the begining of a sequence look like
                 target_input_indcs[:, 1:] = target_output_indcs[:, :-1]
                 # Collect featurewise sequences
                 target_output_seq = gather(shifted_candidates, target_output_indcs)
@@ -360,6 +337,9 @@ class PreprocessedRankingInput(TensorDataClass):
 
 @dataclass
 class RankingOutput(TensorDataClass):
+    r"""
+    Generalized output of any ranking models.
+    """
     ordered_target_out_indcs: Optional[torch.Tensor] = None
     ordered_per_item_probas: Optional[torch.Tensor] = None
     ordered_per_seq_probas: Optional[torch.Tensor] = None

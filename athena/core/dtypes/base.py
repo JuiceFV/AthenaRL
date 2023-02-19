@@ -14,9 +14,9 @@ from athena.core.logger import LoggerMixin
 class TensorDataClass(BaseDataClass, LoggerMixin):
     r"""
     The base data structure represents n-dimensional tensor-based data.
-    Generally, we don't need internal :class:`torch.Tensor` implementation
+    Generally, we don't need the internal :class:`torch.Tensor` implementation
     to represent tensor-based data, i.e. the explicit interface is enough.
-    If a structure has multiple :class:`torch.Tensor` fields then attribute
+    If a structure has multiple :class:`torch.Tensor` fields then an attribute
     call will be applied to each one.
 
     Example::
@@ -132,24 +132,24 @@ class Ftype(str, Enum, metaclass=AthenaEnumMeta):
     process.
     """
 
-    #: Feature value can be either binary (0 or 1) or unique (`min == max`).
+    #: Feature value can be either binary (0 or 1) or unique (``min == max``).
     BINARY = "binary"
 
-    #: Feature value is real number and the distribution adheres normal one.
+    #: Feature value is a real number and a distribution adheres normal one.
     CONTINUOUS = "continuous"
 
     #: Feature value lies within range :math:`[0; 1]`.
     PROBABILITY = "probability"
 
-    #: Feature value is real number which distribution differs enough from
-    #: normal to apply box-cox transformation.
+    #: Feature value is a real number whose distribution differs enough from
+    #: normal to apply the box-cox transformation.
     BOXCOX = "boxcox"
 
     #: Feature takes any discrete value which will be processed distinctly.
     ENUM = "enum"
 
-    #: Feature value is real number which distribution differs enough from
-    #: normal to apply quantile normalization.
+    #: Feature value is a real number whose distribution differs enough from
+    #: normal to apply the quantile normalization.
     QUANTILE = "quantile"
 
     #: Feature will not be processed. Commonly used for fake features.

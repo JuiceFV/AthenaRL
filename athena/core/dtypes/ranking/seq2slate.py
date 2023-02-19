@@ -8,21 +8,18 @@ from athena.core.enum_meta import AthenaEnumMeta
 
 class Seq2SlateMode(Enum, metaclass=AthenaEnumMeta):
     r"""
-    The mode in which :class:`athena.models.ranking.seq2slate.Seq2SlateTransformerModel`
+    The mode in which :class:`~athena.models.ranking.seq2slate.Seq2SlateTransformerModel`
     performs.
     """
     #: Returns ranked items and their generative probabilities.
     RANK_MODE = "rank"
-    #: Returns generative log probabilities of given target
-    #: sequences (used for REINFORCE training).
+    #: Returns generative log probabilities of the given target sequence (used for REINFORCE training).
     PER_SEQ_LOG_PROB_MODE = "per_sequence_log_prob"
-    #: Returns generative log probabilties of each item in
-    #: given sequences (used in TEACHER FORCING training).
+    #: Returns generative log probabilties of each item in the given sequences (used in TEACHER FORCING training).
     PER_ITEM_LOG_PROB_DIST_MODE = "per_item_log_prob_dist"
-    #: Decoding occures only ones, thus not all permutations
-    #: are considered.
+    #: One-shot decoding that uses encoder compact representation.
     DECODE_ONE_STEP_MODE = "decode_one_step"
-    #: Produce only encoder scores.
+    #: Produces only encoder scores.
     ENCODER_SCORE_MODE = "encoder_score_mode"
 
 
@@ -36,41 +33,37 @@ class Seq2SlateOutputArch(Enum, metaclass=AthenaEnumMeta):
     #: A decoder outputs a sequence in an autoregressive way.
     AUTOREGRESSIVE = "autoregressive"
 
-    #: Using encoder scores, a decoder outputs a sequence using
-    #: frechet sort (equivalent to iterative softmax).
+    #: Using encoder scores, a decoder outputs a sequence using frechet sort.
     FRECHET_SORT = "frechet_sort"
 
 
 class Seq2SlateTransformerOutput(NamedTuple):
     r"""
-    Every possible output of :class:`athena.models.ranking.seq2slate.Seq2SlateTransformerModel`
+    Every possible output of :class:`~athena.models.ranking.seq2slate.Seq2SlateTransformerModel`
     """
-    #: Probability distribution over items for every permutation.
+    #: Item's probabilities bieng placed. Item probability is :math:`p(\pi_i | \pi_{<i})`
     ordered_per_item_probas: Optional[torch.Tensor]
-    #: Generative probabilities of each permutation, computed as
-    #: :math:`P(s) = \prod{P(i)}`.
+    #: Generative probabilities of each permutation.
     ordered_per_seq_probas: Optional[torch.Tensor]
-    #: Resulted rearanged sequence.
+    #: Rearranged sequence.
     ordered_target_out_indcs: Optional[torch.Tensor]
     #: Log probabilities of item to be in place.
-    #: Generally used in teacher forcing mode.
     per_item_log_probas: Optional[torch.Tensor]
     #: Log of probability of sequence.
-    #: :math:`\log{(P(S))} = \sum{log{(P(i))}}`
     per_seq_log_probas: Optional[torch.Tensor]
-    #: Values returned by encoder block.
+    #: Encoder weights that are used in encoder only method.
     encoder_scores: Optional[torch.Tensor]
 
 
 class Seq2SlateVersion(Enum, metaclass=AthenaEnumMeta):
     r"""
-    Version of the seq2slate model.
+    Version of the :class:`~athena.models.ranking.seq2slate.Seq2SlateTransformerModel`.
     """
-    #: Teacher-forcing fashion. Ground truth required.
+    #: Weak supervised learning, that implies ground truth labels (e.g. number of clicks).
     TEACHER_FORCING = "teacher_forcing"
 
-    #: RL fashion.
+    #: Optimizes a given metric :math:`\mathcal{R}(\pi, y)` in the RL fashion.
     REINFORCEMENT_LEARNING = "reinforcement_learning"
 
-    #: Pairwise fashion. Without decoder.
+    #: Pairwise attention model.
     PAIRWISE_ATTENTION = "pairwise_attention"

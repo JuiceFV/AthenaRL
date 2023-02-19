@@ -12,14 +12,14 @@ from athena.preprocessing import (DEFAULT_MAX_QUANTILE_SIZE,
 @dataclass
 class PreprocessingOptions:
     r"""
-    Options used to preprocess and transform data. For the details
-    follow :func:`athena.preprocessing.normalization.identify_param`.
+    Options are used to preprocess and transform data. For the details,
+    follow :func:`~athena.preprocessing.normalization.identify_param`.
 
     .. warning::
 
         Currently ``set_missing_value_to_zero``, ``allowed_features``
         ``assert_allowlist_feature_coverage`` not in use. They will
-        be implemented in further versions.
+        be implemented in the further versions.
 
         1. ``set_missing_value_to_zero`` - intends to replace missing
         values (``x_presence == False``) with 0. During sparse data
@@ -33,10 +33,11 @@ class PreprocessingOptions:
         features are ``allowed_features``.
     """
 
-    #: Number of samples used to infer statistics from raw data.
+    #: Number of samples are used to infer statistics from raw data.
     nsamples: int = DEFAULT_NSAMPLES
 
     #: Maximum unique values of a catigorical feature.
+    #: Each value will be transformed to an one-hot vector
     max_unique_enum_values: int = DEFAULT_MAX_UNIQUE_ENUM
 
     #: Number of quantiles splits the raw data during transformation.
