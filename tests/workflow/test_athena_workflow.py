@@ -85,9 +85,6 @@ class TestAthenaWorkflow(AthenaTestBase):
             ), patch(
                 "athena.model_managers.seq2slate_base.Seq2SlateDataModule.run_feature_identification",
                 return_value=mock_normalization
-            ), patch(
-                "athena.data.fap.spark.SparkFapper.get_max_sequence_len",
-                return_value=50
             ):
                 result = runner.invoke(
                     cli.run,

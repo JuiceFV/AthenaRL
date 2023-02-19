@@ -5,9 +5,9 @@ input_table_spec:
 model:
   Seq2Slate:
     state_preprocessing_options:
-      nsamples: 10000
+      nsamples: 50
     candidate_preprocessing_options:
-      nsamples: 10000
+      nsamples: 50
     slate_size: 50
     num_of_candidates: 50
     net_builder:
@@ -43,7 +43,7 @@ options:
   resource_options:
     gpu: 8
   reader_options:
-    minibatch_size: 512
+    minibatch_size: 1
 fapper:
   SparkFapper:
     config:
