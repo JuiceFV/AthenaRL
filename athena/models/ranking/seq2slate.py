@@ -455,12 +455,10 @@ class Seq2SlateTransformerModel(nn.Module):
 
         Args:
             state (torch.Tensor): Featurewise state.
-            memory (torch.Tensor): Encoder output depicts how important
-                each item in the sequence at the current time step.
-            featurewise_seq (torch.Tensor): The source sequence adjusted
-                for the learning purpose. I.e. added start and padding symbols' vectors.
+            memory (torch.Tensor): Encoder output.
+            featurewise_seq (torch.Tensor): The source sequence adjusted for the learning purpose.
             target_seq_len (int): Length of the target sequence.
-            greedy (bool): The way how to choose next candidate. :class:`athena.nn.SimplexSampler`.
+            greedy (bool): Greedy way of sampling.
 
         Shape:
             - state: :math:`(B, H)`
