@@ -47,7 +47,7 @@ def _load_runner_and_config_class(runner: str) -> Tuple[Callable, Type]:
     return runner_callable, ConfigClass
 
 
-@reranking.command(short_help="Run reranking service with given config file")
+@reranking.command(short_help="Run workflow with given config file")
 @click.argument("runner")
 @click.argument("config_file", type=click.File("r"))
 @click.option("--extra-options", default=None,
