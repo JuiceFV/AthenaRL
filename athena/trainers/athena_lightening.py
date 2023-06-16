@@ -4,7 +4,7 @@ from typing import Generator, Optional, Union
 
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.loggers.logger import DummyExperiment, LoggerCollection
+from pytorch_lightning.loggers.logger import DummyExperiment
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 from typing_extensions import final
@@ -83,7 +83,7 @@ class AthenaLightening(pl.LightningModule):
         self._summary_writer = None
         self._summary_writer_logger = self.logger
 
-        if isinstance(self.logger, LoggerCollection):
+        if isinstance(self.logger, list):
             for logger in self.logger:
                 if isinstance(logger, TensorBoardLogger):
                     self._summary_writer = logger.experiment
