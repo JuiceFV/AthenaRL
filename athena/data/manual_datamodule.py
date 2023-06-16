@@ -69,7 +69,7 @@ class ManualDataModule(AthenaDataModule):
         setup_data: Optional[Dict[str, bytes]] = None,
         saved_setup_data: Optional[Dict[str, bytes]] = None,
         reader_options: Optional[ReaderOptions] = None,
-        resource_options: Optional[ReaderOptions] = None,
+        resource_options: Optional[ResourceOptions] = None,
         model_manager: Optional[ModelManager] = None
     ):
         super().__init__(fapper=fapper)
